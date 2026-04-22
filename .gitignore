@@ -1,0 +1,15 @@
+.vscode/*
+
+.antlr/*
+
+*.interp
+
+*.tokens
+
+liteQL*.java
+schema_grammar*.java
+
+*.class
+
+data/script.sql
+data/schema.sql

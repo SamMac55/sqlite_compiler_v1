@@ -1,0 +1,8 @@
+//change platypus name to 'Perry the Platypus'
+change animals set animal_name='Perry the Platypus', animal_pedality='biped' with animal_name is 'Platypus';
+
+//remove penguin from animals
+remove animals with animal_name is 'penguin';
+
+//add capybara to animals database
+add animals animal_name='capybara',habitat='forests',land_type='land';

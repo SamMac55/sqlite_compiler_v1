@@ -1,0 +1,20 @@
+//this is a select * statement
+songs all;
+
+//get the song id and song name for all songs
+songs song_id,name;
+
+//get the song with id 50
+songs all with song_id is 50;
+
+//find the 10 shortest songs in imagined database
+find 10 songs all sorted by duration;
+
+//showcase joins
+find 3 songs name with artists name using artist_id;
+
+//complex order by 
+find 5 artists all sorted by artist_name,artist_country;
+
+// group by and having
+artists all group by artist_country having artist_country is 'US' or artist_country is not 'Panama';
