@@ -45,9 +45,7 @@ havingClause: HAVING conjoinedAttrComparison;
 
 
 //CONSTRAINTS
-constraintList: constraint ',' constraintList           #listOfConstraint
-            |   constraint                             #singleConstraint
-            ;
+constraintList: constraint (',' constraint)*;
 constraint: NOT NULL
         |   'pk'
         ;
@@ -58,10 +56,7 @@ selectList: attributeList
         | ALL;
 
 //LIST OF ATTRIBUTES (used in group by and order by clauses)              
-attributeList
-  : attribute ',' attributeList                        #attrList
-  | attribute                                          #singleAttr     
-  ;
+attributeList: attribute (',' attribute)*;
         
 //CREATING ATTRIBUTES
 //how do we create a new attribute?
@@ -71,21 +66,17 @@ createAttr: type name=ID '('constraintList')'           #createAttrWithConstrain
         ;
 
 //how will a list of new attributes look like when creating table?
-createAttrList: createAttr ',' createAttrList           #listOfCreateAttr  
-        |   createAttr                                  #singleCreateAttr
-        ;
+createAttrList: createAttr (',' createAttr)*;  
+
 //COMPARING ATTRIBUTES
 //handles and, or ex first_name is 'sam' and last_name is 'mac'
-conjoinedAttrComparison: attrComparison conjunction conjoinedAttrComparison    
-                        | attrComparison                                       
-                        ;
+conjoinedAttrComparison: attrComparison (conjunction conjoinedAttrComparison)*;
+
 //simple comparison like first_name is 'sam'
 attrComparison: attribute comparison value;
 
 //ASSIGNMENTS
-assignList: assignmentStmt ',' assignList               #listOfAssignment
-        |   assignmentStmt                              #singleAssignment
-        ;
+assignList: assignmentStmt (',' assignmentStmt)*;
 assignmentStmt: attr=attribute '=' val=value; // assignments look like first_name='Sam'
 
 //NAMES
