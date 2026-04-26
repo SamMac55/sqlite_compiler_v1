@@ -403,7 +403,38 @@ class DeleteRowNode extends ASTNode{
             (whereClause != null ? " WHERE " + whereClause.emitSQL() : "") + ";";
     }
 }
-
+class UpdateNode extends ASTNode{
+    String tableID;
+    AssignmentListNode assignments;
+    ConjoinedComparisonNode whereClause; // null if no where clause
+    public UpdateNode(String tableID, AssignmentListNode assignments, ConjoinedComparisonNode whereClause) {
+        this.tableID = tableID;
+        this.assignments = assignments;
+        this.whereClause = whereClause;
+     }
+    @Override
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        Schema.Table t = schema.getTable(tableID);
+        if(t == null){
+            throw new RuntimeException("Table not found: " + tableID);
+        }
+        List<Schema.Table> scope = new ArrayList<>();
+        scope.add(t);
+        if(!assignments.validate(schema, scope)){
+            throw new RuntimeException("Invalid assignment list in update statement");
+        }
+        if(whereClause != null && !whereClause.validate(schema, scope)){
+            throw new RuntimeException("Invalid where clause in update statement");
+        }
+        return true;
+    }
+    @Override
+    public String emitSQL() {
+        return "UPDATE " + tableID +
+            " SET " + assignments.emitSQL() +
+            (whereClause != null ? " WHERE " + whereClause.emitSQL() : "") + ";";
+    }
+}
 class InsertNode extends ASTNode{
     String tableID;
     AssignmentListNode assignments;

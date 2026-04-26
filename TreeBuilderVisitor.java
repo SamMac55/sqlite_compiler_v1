@@ -30,7 +30,7 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
      }
 
 	@Override public ASTNode visitUpdateRow(liteQLParser.UpdateRowContext ctx) { 
-        return null;
+        return new UpdateNode(ctx.tableSource().getText(), (AssignmentListNode) visit(ctx.assignList()), (ConjoinedComparisonNode) visit(ctx.whereClause().conjoinedAttrComparison()));
      }
 
     //this method's sole purpuse is to build the selectIR that is used by selectEmmiter to create sql statements
