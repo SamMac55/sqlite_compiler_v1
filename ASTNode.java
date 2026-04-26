@@ -404,6 +404,101 @@ class DeleteRowNode extends ASTNode{
     }
 }
 
+class InsertNode extends ASTNode{
+    String tableID;
+    AssignmentListNode assignments;
+    public InsertNode(String tableID, AssignmentListNode assignments) {
+        this.tableID = tableID;
+        this.assignments = assignments;
+     }
+    @Override
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        Schema.Table t = schema.getTable(tableID);
+        if(t == null){
+            throw new RuntimeException("Table not found: " + tableID);
+        }
+        List<Schema.Table> scope = new ArrayList<>();
+        scope.add(t);
+        if(!assignments.validate(schema, scope)){
+            throw new RuntimeException("Invalid assignment list in insert statement");
+        }
+        return true;
+    }
+    @Override
+    public String emitSQL() {
+        StringBuilder sb = new StringBuilder();
+         sb.append("INSERT INTO ").append(tableID).append(" (");
+         List<String> columns = new ArrayList<>();
+         List<String> values = new ArrayList<>();
+         for(AssignmentStatementNode assignment: assignments.assignments){
+             columns.add(assignment.attribute.getName());
+             values.add(assignment.value.getValue().toString());
+         }
+         sb.append(String.join(", ", columns));
+         sb.append(") VALUES (");
+         sb.append(String.join(", ", values));
+         sb.append(");");
+         return sb.toString();
+    }
+}
+
+class AssignmentStatementNode extends ASTNode{
+    AttributeReference attribute;
+    Value value;
+    public AssignmentStatementNode(AttributeReference attribute, Value value) {
+        this.attribute = attribute;
+        this.value = value;
+    }
+    @Override
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        Schema.Attribute attr = ASTNode.resolveAttribute(tablesInScope, attribute.getTableName(), attribute.getName());
+        if(attr == null){
+            throw new RuntimeException("Attribute not found: " + attribute.toString());
+        }
+        String type = attr.type;
+        String valueType = value.getValueType();
+        if ((type.equals("REAL") || type.equals("INTEGER")) &&
+            (valueType.equals("REAL") || valueType.equals("INTEGER"))) {
+            return true;
+        }
+        if(type.equals(valueType)){
+            return true;
+        }
+        throw new RuntimeException("Type mismatch in assignment: cannot assign " + valueType + " to " + type);
+    }
+    @Override
+    public String emitSQL() {
+        return attribute.getName() + " = " + value.getValue().toString();
+    }
+}
+
+class AssignmentListNode extends ASTNode{
+    List<AssignmentStatementNode> assignments;
+    public AssignmentListNode(List<AssignmentStatementNode> assignments) {
+        this.assignments = assignments;
+    }
+    @Override
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        for(AssignmentStatementNode assignment: assignments){
+            if(!assignment.validate(schema, tablesInScope)){
+                throw new RuntimeException("Invalid assignment in set clause");
+            }
+        }
+        return true;
+    }
+    @Override
+    public String emitSQL() {
+        StringBuilder sb = new StringBuilder();
+        for(int i = 0; i < assignments.size(); i++){
+            sb.append(assignments.get(i).emitSQL());
+            if(i < assignments.size() - 1){
+                sb.append(", ");
+            }
+        }
+        return sb.toString();
+    }
+}
+
 // need to be able to distinguish what a value is
 abstract class Value{
     public abstract Object getValue();

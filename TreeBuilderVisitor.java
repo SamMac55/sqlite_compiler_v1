@@ -26,7 +26,7 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
 
 	@Override public ASTNode visitInsert(liteQLParser.InsertContext ctx) { 
         //insert: ADD tableSource assignList  ';';
-        return null;
+        return new InsertNode(ctx.tableSource().getText(), (AssignmentListNode) visit(ctx.assignList()));
      }
 
 	@Override public ASTNode visitUpdateRow(liteQLParser.UpdateRowContext ctx) { 
@@ -146,6 +146,34 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
         }
         return new AttributeComparisonNode(lhs, op, rhs);
     }
+    @Override public ASTNode visitAssignList(liteQLParser.AssignListContext ctx) { 
+        //attribute '=' value (',' attribute '=' value)*;
+        List<liteQLParser.AssignmentStmtContext> stmts = ctx.assignmentStmt();
+        List<AssignmentStatementNode> assignments = new ArrayList<>();
+        for (liteQLParser.AssignmentStmtContext stmtCtx : stmts) {
+            assignments.add((AssignmentStatementNode) visit(stmtCtx));
+        }
+        return new AssignmentListNode(assignments);
+    }
+    @Override public ASTNode visitAssignmentStmt(liteQLParser.AssignmentStmtContext ctx) { 
+        //attribute '=' value ';';
+        AttributeReference attribute = new AttributeReference(ctx.attribute().tablename != null ? ctx.attribute().tablename.getText() : null, ctx.attribute().attr.getText());
+        Value value;
+        if(ctx.value().INTEGER() !=null){
+            value = new IntLiteral(Integer.parseInt(ctx.value().INTEGER().getText()));
+        } else if(ctx.value().STRING() != null){
+            value = new StringLiteral(ctx.value().STRING().getText());
+        } else if(ctx.value().attribute() != null){
+            value = new AttributeReference(ctx.value().attribute().tablename != null ? ctx.value().attribute().tablename.getText() : null, ctx.value().attribute().attr.getText());
+        }else if (ctx.value().NULL() != null){
+            value = new NullLiteral();
+        }else if (ctx.value().DOUBLE() != null){
+            value = new DoubleLiteral(Double.parseDouble(ctx.value().DOUBLE().getText()));
+        }else {
+            throw new RuntimeException("Invalid value in assignment statement");
+        }
+        return new AssignmentStatementNode(attribute, value);
+     }
 
     @Override public ASTNode visitFullschema(liteQLParser.FullschemaContext ctx) { /*change to something like sqlEmiter.emit(".fullschema") */ return null;}
 	
