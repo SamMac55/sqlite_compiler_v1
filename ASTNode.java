@@ -1,30 +1,96 @@
 import java.util.List;
 import java.util.ArrayList;
 public abstract class ASTNode {
-    public abstract boolean validate(Schema schema, Schema.Table tableName); // may make this method take a table name as an argument
-
+    public abstract boolean validate(Schema schema, List<Schema.Table> tablesInScope); // may make this method take a table name as an argument
     public abstract String emitSQL();
+    public static Schema.Attribute resolveAttribute(List<Schema.Table> scope, String name) {
+        Schema.Attribute found = null;
+
+        for (Schema.Table t : scope) {
+            if (t.hasAttribute(name)) {
+                if (found != null) {
+                    throw new RuntimeException("Ambiguous attribute: " + name);
+                }
+                found = t.getAttribute(name);
+            }
+        }
+
+        return found;
+    }
+    public static Schema.Attribute resolveAttribute(List<Schema.Table> scope, String tableName, String attrName) {
+        if(tableName!=null){
+            Schema.Table t = null;
+            for(Schema.Table table: scope){
+                if(table.table_name.equals(tableName)){
+                    t = table;
+                    break;
+                }
+            }
+            if (t != null) {
+                if (!t.hasAttribute(attrName)) {
+                    throw new RuntimeException("Attribute not found in table: " + tableName + "." + attrName);
+                }
+                return t.getAttribute(attrName);
+            } else {
+                throw new RuntimeException("Table not found in scope: " + tableName);
+            }
+        }else{
+            return resolveAttribute(scope, attrName);
+        }
+    }
 }
 
+
 class AttributeComparisonNode extends ASTNode {
-    String lhs;
+    AttributeReference lhs;
     String op;
     Value rhs;
-    public AttributeComparisonNode(String lhs, String op, Value rhs) {
+    public AttributeComparisonNode(AttributeReference lhs, String op, Value rhs) {
         this.lhs = lhs;
         this.op = op;
         this.rhs = rhs;
     }
     @Override
-    public boolean validate(Schema schema, Schema.Table tableName) {
-        if(tableName.hasAttribute(lhs)){
-            
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        Schema.Attribute validAttr = ASTNode.resolveAttribute(tablesInScope, lhs.tableName, lhs.value);
+        if(validAttr != null ){
+            if(this.rhs instanceof NullLiteral && !validAttr.hasConstraint("NOTNULL") && (op.equals("=") || op.equals("!="))){
+                return true;
+            }
+            if (rhs instanceof AttributeReference ref) {
+                Schema.Attribute rhsAttr = ASTNode.resolveAttribute(tablesInScope, ref.tableName, ref.value);
+
+                if (rhsAttr == null) throw new RuntimeException("Invalid attribute in comparison: " + ref.value);
+
+                return validAttr.type.equals(rhsAttr.type);
+            }
+            String type = validAttr.type;
+            String rhsType = this.rhs.getValueType();
+            if ((type.equals("REAL") || type.equals("INTEGER")) &&
+                (rhsType.equals("REAL") || rhsType.equals("INTEGER"))) {
+                return true;
+            }
+            if(type.equals(rhsType)){
+                return true;
+            }
         }
-        return true;
+        throw new RuntimeException("Invalid attribute in comparison: " + lhs.value);
     }
     @Override public String emitSQL() {
-        // emit the SQL representation of the attribute comparison
-        return null;
+        String lhsStr = (lhs.tableName != null)
+            ? lhs.tableName + "." + lhs.value
+            : lhs.value;
+
+        String rhsStr;
+        if (rhs instanceof AttributeReference ref) {
+            rhsStr = (ref.tableName != null)
+                ? ref.tableName + "." + ref.value
+                : ref.value;
+        } else {
+            rhsStr = rhs.getValue().toString();
+        }
+
+        return lhsStr + " " + op + " " + rhsStr;
     }
 }
 
@@ -38,25 +104,37 @@ class ConjoinedComparisonNode extends ASTNode{
         this.right = right;
     }
     @Override
-    public boolean validate(Schema schema, Schema.Table tableName) {
-        // validate the left and right comparisons
-        return true;
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        if (right == null && conjunction == null) {
+            return left.validate(schema, tablesInScope);
+        }
+
+        if (right == null) {
+            throw new RuntimeException("Hanging conjunction");
+        }
+
+        boolean leftValid  = left.validate(schema, tablesInScope);
+        boolean rightValid = right.validate(schema, tablesInScope);
+
+        return leftValid && rightValid;
     }
     @Override public String emitSQL() {
-        // emit the SQL representation of the conjoined comparison
-        return null;
+        if(right == null){
+            return left.emitSQL();
+        }
+        return left.emitSQL() + " " + conjunction + " " + right.emitSQL();
     }
 }
 
 class SelectNode extends ASTNode{
     int limit = -1; // -1 means no limit
     String mainTableName;
-    List<String> selectedAttributes = new ArrayList<>(); // empty list means select *
+    List<AttributeReference> selectedAttributes = new ArrayList<>(); // empty list means select *
     JoinNode join; // null if no join
     ConjoinedComparisonNode whereClause; // null if no where clause
     GroupNode groupBy; // null if no group by clause
     OrderNode orderBy; // null if no order by clause
-    public SelectNode(String mainTableName, List<String> selectedAttributes, int limit, JoinNode join, ConjoinedComparisonNode whereClause, GroupNode groupBy, OrderNode orderBy) {
+    public SelectNode(String mainTableName, List<AttributeReference> selectedAttributes, int limit, JoinNode join, ConjoinedComparisonNode whereClause, GroupNode groupBy, OrderNode orderBy) {
         this.mainTableName = mainTableName;
         this.selectedAttributes = selectedAttributes;
         this.limit = limit;
@@ -66,74 +144,206 @@ class SelectNode extends ASTNode{
         this.orderBy = orderBy;
     }
     @Override
-    public boolean validate(Schema schema, Schema.Table tableName) {
-        // validate the select statement
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        List<Schema.Table> scope = new ArrayList<>();
+
+        Schema.Table main = schema.getTable(mainTableName);
+        if (main == null) throw new RuntimeException("Main table not found: " + mainTableName);
+        scope.add(main);
+
+        if (join != null) {
+            Schema.Table joined = schema.getTable(join.table);
+            if (joined == null) throw new RuntimeException("Joined table not found: " + join.table);
+            scope.add(joined);
+            if(!join.validate(schema,scope)) throw new RuntimeException("Invalid join clause");
+        }
+
+        if (whereClause != null) {
+            if (!whereClause.validate(schema, scope)) throw new RuntimeException("Invalid where clause");
+        }
+
+        if(orderBy != null){
+            if(!orderBy.validate(schema, scope)) throw new RuntimeException("Invalid order by clause");
+        }
+
+        if(groupBy != null){
+            if(!groupBy.validate(schema, scope)) throw new RuntimeException("Invalid group by clause");
+        }
+
+        for(AttributeReference attr: selectedAttributes){
+            if (main.getAttribute(attr.getName()) == null) {
+                throw new RuntimeException("Selected attribute not found in any table: " + attr);
+            }
+        }
         return true;
     }
-    @Override public String emitSQL() {
-        // emit the SQL representation of the select statement
-        return null;
+    @Override
+    public String emitSQL() {
+        List<String> finalAttrs = new ArrayList<>();
+
+        boolean mainAll = selectedAttributes.isEmpty();
+        boolean joinAll = (join != null && join.getSelectedAttributes().isEmpty());
+
+        // Case 1: both are *
+        if (mainAll && (join == null || joinAll)) {
+            return "SELECT * FROM " + mainTableName +
+                (join != null ? " " + join.emitSQL() : "") +
+                (whereClause != null ? " WHERE " + whereClause.emitSQL() : "") +
+                (groupBy != null ? " " + groupBy.emitSQL() : "") +
+                (orderBy != null ? " " + orderBy.emitSQL() : "") +
+                (limit != -1 ? " LIMIT " + limit : "") + ";";
+        }
+
+        // Main attributes
+        if (!mainAll) {
+            for (AttributeReference attr : selectedAttributes) {
+                finalAttrs.add(mainTableName + "." + attr.getName());
+            }
+        } else if (join != null && !joinAll) {
+            finalAttrs.add(mainTableName + ".*");
+        }
+
+        // Join attributes
+        if (join != null) {
+            if (!joinAll) {
+                for (AttributeReference attr : join.getSelectedAttributes()) {
+                    finalAttrs.add(join.table + "." + attr.getName());
+                }
+            } else if (!mainAll) {
+                finalAttrs.add(join.table + ".*");
+            }
+        }
+
+        String selectClause = "SELECT " + String.join(", ", finalAttrs);
+
+        return selectClause + " FROM " + mainTableName +
+            (join != null ? " " + join.emitSQL() : "") +
+            (whereClause != null ? " WHERE " + whereClause.emitSQL() : "") +
+            (groupBy != null ? " " + groupBy.emitSQL() : "") +
+            (orderBy != null ? " " + orderBy.emitSQL() : "") +
+            (limit != -1 ? " LIMIT " + limit : "");
     }
 }
 
 class JoinNode extends ASTNode{
     String table;
     String onCondition;
-    List<String> selectedAttributes; // empty list means select *
-    public JoinNode(String table, String onCondition, List<String> selectedAttributes) {
+    List<AttributeReference> selectedAttributes; // empty list means select *
+    String mainTable;
+
+    public JoinNode(String mainTable, String table, String onCondition, List<AttributeReference> selectedAttributes) {
+        this.mainTable = mainTable;
         this.table = table;
         this.onCondition = onCondition;
         this.selectedAttributes = selectedAttributes;
     }
-    public JoinNode(String table, String onCondition) {
+    public JoinNode(String mainTable, String table, String onCondition) {
+        this.mainTable = mainTable;
         this.table = table;
         this.onCondition = onCondition;
         this.selectedAttributes = new ArrayList<>();
     }
     @Override
-    public boolean validate(Schema schema, Schema.Table tableName) {
-        // validate the join statement
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        if(schema.getTable(table) == null){
+            throw new RuntimeException("Joined table not found: " + table);
+        }
+        for(Schema.Table t: tablesInScope){
+            if(!t.hasAttribute(onCondition)){
+                throw new RuntimeException("Invalid attribute in join condition: " + onCondition);
+            }
+        }
+        for(AttributeReference attr: selectedAttributes){
+            if(!schema.getTable(table).hasAttribute(attr.getName())){
+                throw new RuntimeException("Selected attribute not found in joined table: " + attr.getName());
+            }
+        }
         return true;
     }
-    @Override public String emitSQL() {
-        // emit the SQL representation of the join statement
-        return null;
+    @Override
+    public String emitSQL() {
+        return "JOIN " + table +
+            " ON " + table + "." + onCondition +
+            " = " + mainTable + "." + onCondition;
+    }
+    public List<AttributeReference> getSelectedAttributes() {
+        return selectedAttributes;
     }
 }
 
 class OrderNode extends ASTNode{
-    List<String> attributes; // attributes to order by
+    List<AttributeReference> attributes; // attributes to order by
     String order; // "ASC" or "DESC"
-    public OrderNode(List<String> attributes, String order) {
+    public OrderNode(List<AttributeReference> attributes, String order) {
         this.attributes = attributes;
         this.order = order;
     }
     @Override
-    public boolean validate(Schema schema, Schema.Table tableName) {
-        // validate the order by statement
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        for(AttributeReference attr: attributes){
+            boolean found = false;
+            if(resolveAttribute(tablesInScope, attr.getTableName(), attr.getName()) != null){
+                found = true;
+            }
+            if(!found){
+                throw new RuntimeException("Attribute not found in any table: " + attr.getName());
+            }
+        }
         return true;
     }
     @Override public String emitSQL() {
-        // emit the SQL representation of the order by statement
-        return null;
+        StringBuilder sb = new StringBuilder();
+        sb.append("ORDER BY ");
+        for(int i = 0; i < attributes.size(); i++){
+            AttributeReference attr = attributes.get(i);
+            sb.append(attr.toString());
+            if(i < attributes.size() - 1){
+                sb.append(", ");
+            }
+        }
+        sb.append(" ").append(order);
+        return sb.toString();
     }
 }
 
 class GroupNode extends ASTNode{
-    List<String> attributes; // attributes to group by
+    List<AttributeReference> attributes; // attributes to group by
     HavingNode having; // null if no having clause
-    public GroupNode(List<String> attributes, HavingNode having) {
+    public GroupNode(List<AttributeReference> attributes, HavingNode having) {
         this.attributes = attributes;
         this.having = having;
     }
     @Override
-    public boolean validate(Schema schema, Schema.Table tableName) {
-        // validate the group by statement
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        if(having != null && !having.validate(schema,tablesInScope))
+            throw new RuntimeException("Invalid having clause");
+        for(AttributeReference attr: attributes){
+            boolean found = false;
+
+            if(resolveAttribute(tablesInScope, attr.getTableName(), attr.getName()) != null){
+                found = true;
+            }
+            if(!found){
+                throw new RuntimeException("Attribute not found in any table: " + attr.toString());
+            }
+        }
         return true;
     }
     @Override public String emitSQL() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("GROUP BY ");
+        for(int i = 0; i < attributes.size(); i++){
+            AttributeReference attr = attributes.get(i);
+            sb.append(attr.toString());
+            if(i < attributes.size() - 1){
+                sb.append(", ");
+            }
+        }
+        if(having != null){
+            sb.append(" ").append(having.emitSQL());
+        }
+        return sb.toString();
         // emit the SQL representation of the group by statement
-        return null;
     }
 }
 
@@ -143,18 +353,19 @@ class HavingNode extends ASTNode{
         this.condition = condition;
     }
     @Override
-    public boolean validate(Schema schema, Schema.Table tableName) {
-        // validate the having clause
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        if(!condition.validate(schema, tablesInScope))
+            throw new RuntimeException("Invalid having clause");
         return true;
     }
     @Override public String emitSQL() {
-        // emit the SQL representation of the having clause
-        return null;
+        return "HAVING " + condition.emitSQL();
     }
 }
 
 // need to be able to distinguish what a value is
 abstract class Value{
+    public abstract Object getValue();
     public abstract String getValueType();
 }
 
@@ -167,6 +378,10 @@ class IntLiteral extends Value{
     public String getValueType() {
         return "INTEGER";
     }
+    @Override
+    public Object getValue() {
+        return value;
+    }
 }
 
 class DoubleLiteral extends Value{
@@ -176,7 +391,11 @@ class DoubleLiteral extends Value{
     }
     @Override
     public String getValueType() {
-        return "DOUBLE";
+        return "REAL";
+    }
+    @Override
+    public Object getValue() {
+        return value;
     }
 }
 
@@ -187,7 +406,11 @@ class StringLiteral extends Value{
     }
     @Override
     public String getValueType() {
-        return "STRING";
+        return "TEXT";
+    }
+    @Override
+    public Object getValue() {
+        return value;
     }
 }
 
@@ -200,15 +423,34 @@ class NullLiteral extends Value{
     public String getValueType() {
         return "NULL";
     }
+    @Override
+    public Object getValue() {
+        return value;
+    }
 }
 
 class AttributeReference extends Value{
+    String tableName; // null if no table specified
     String value;
-    public AttributeReference(String value) {
+    public AttributeReference(String tableName, String value) {
+        this.tableName = tableName;
         this.value = value;
     }
     @Override
     public String getValueType() {
         return "ATTRIBUTE";
+    }
+    @Override
+    public Object getValue() {
+        return value;
+    }
+    public String getName() {
+        return value;
+    }
+    public String getTableName() {
+        return tableName;
+    }
+    public String toString() {
+        return (tableName != null ? tableName + "." : "") + value;
     }
 }

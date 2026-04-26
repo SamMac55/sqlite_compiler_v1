@@ -83,16 +83,16 @@ assignmentStmt: attr=attribute '=' val=value; // assignments look like first_nam
 
 //NAMES
 tableSource: tablename=ID ; //a table source is just a name
-attribute: attr=ID; //an attribute is also just an name
+attribute: attr=ID | tablename=ID'.'attr=ID; //an attribute is also just an name
 
 //BASICS
 //comparisons
-comparison: GREATER THAN
-        |   LESS THAN
-        |   AT LEAST
-        |   AT MOST
-        |   IS NOT
-        |   IS
+comparison: GREATER THAN #greaterThan
+        |   LESS THAN   #lessThan       
+        |   AT LEAST    #greaterEqual
+        |   AT MOST     #lessEqual
+        |   IS NOT      #notEqual      
+        |   IS  #equal
         ;
         
 //values

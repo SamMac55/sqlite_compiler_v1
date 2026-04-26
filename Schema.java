@@ -13,6 +13,15 @@ public class Schema {
         }
         return false;
     }
+
+    public Table getTable(String name) {
+        for (Table t : tables) {
+            if (t.table_name.equals(name))
+                return t;
+        }
+        return null;
+    }
+    
     public Schema getSchema() {
         return instance;
     }

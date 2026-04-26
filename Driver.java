@@ -1,3 +1,6 @@
+import java.io.FileNotFoundException;
+import java.util.ArrayList;
+
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -26,10 +29,22 @@ public class Driver {
             // use program rule
             ParseTree tree = parser.program();
 
-            PrettyPrintVisitor visitor = new PrettyPrintVisitor(schema);
-            String result = visitor.visit(tree);
+            //PrettyPrintVisitor visitor = new PrettyPrintVisitor(schema);
+            //String result = visitor.visit(tree);
 
-            System.out.println(result);
+            //System.out.println(result);
+
+            TreeBuilderVisitor builder = new TreeBuilderVisitor();
+            builder.visit(tree);
+
+            // iterate over collected AST nodes
+            for (ASTNode node : builder.statements) {
+                if (node.validate(schema, new ArrayList<>())) {
+                    System.out.println(node.emitSQL());
+                } else {
+                    System.out.println("Invalid statement");
+                }
+            }
             //TESTING PURPOSES
             // System.out.println(schema.tables.toString());
             // for (Schema.Table t : schema.tables) {
@@ -38,8 +53,11 @@ public class Driver {
             //         System.out.println("  Attribute: " + a.attr_name + " Type: " + a.type + " Constraints: " + a.constraints);
             //     }
             // }
-        }catch(Exception e){
+        }catch(FileNotFoundException e){
             System.out.println("Schema file not created please create it");
+            return;
+        }catch(RuntimeException e){
+            System.out.println("Error: " + e.getMessage());
             return;
         }
         
