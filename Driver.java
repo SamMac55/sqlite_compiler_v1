@@ -40,7 +40,7 @@ public class Driver {
             // iterate over collected AST nodes
             for (ASTNode node : builder.statements) {
                 if (node.validate(schema, new ArrayList<>())) {
-                    System.out.println(node.emitSQL());
+                    System.out.println(node.emitSQL() + "\n");
                 } else {
                     System.out.println("Invalid statement");
                 }

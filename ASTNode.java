@@ -171,9 +171,13 @@ class SelectNode extends ASTNode{
         }
 
         for(AttributeReference attr: selectedAttributes){
-            if (main.getAttribute(attr.getName()) == null) {
+            if (ASTNode.resolveAttribute(scope, mainTableName, attr.getName()) == null) {
                 throw new RuntimeException("Selected attribute not found in any table: " + attr);
             }
+            if(attr.getTableName() != null && !attr.getTableName().equals(mainTableName)){
+                throw new RuntimeException("Selected attribute has invalid table qualifier: " + attr);
+            }
+            
         }
         return true;
     }
@@ -221,7 +225,7 @@ class SelectNode extends ASTNode{
             (whereClause != null ? " WHERE " + whereClause.emitSQL() : "") +
             (groupBy != null ? " " + groupBy.emitSQL() : "") +
             (orderBy != null ? " " + orderBy.emitSQL() : "") +
-            (limit != -1 ? " LIMIT " + limit : "");
+            (limit != -1 ? " LIMIT " + limit : "") + ";";
     }
 }
 
