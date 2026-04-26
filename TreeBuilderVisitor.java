@@ -11,17 +11,17 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
                 statements.add(node);
             }
         }
-        return null; // retrn doesn't matter
+        return null; // return doesn't matter
     }
 
     @Override public ASTNode visitDeleteTable(liteQLParser.DeleteTableContext ctx) { 
         //REMOVE TABLE tablename=ID ';';
-        return null;
+        return new DeleteTableNode(ctx.tablename.getText());
     }
 	
 	@Override public ASTNode visitDeleteRow(liteQLParser.DeleteRowContext ctx) { 
         //REMOVE tableSource whereClause ';';
-        return null;
+        return new DeleteRowNode(ctx.tableSource().getText(), (ConjoinedComparisonNode) visit(ctx.whereClause().conjoinedAttrComparison()));
      }
 
 	@Override public ASTNode visitInsert(liteQLParser.InsertContext ctx) { 

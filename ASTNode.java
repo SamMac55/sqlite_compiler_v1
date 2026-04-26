@@ -363,6 +363,47 @@ class HavingNode extends ASTNode{
     }
 }
 
+class DeleteTableNode extends ASTNode{
+    String tableID;
+    public DeleteTableNode(String tableID) {
+        this.tableID = tableID;
+    }
+    @Override public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        if(schema.getTable(tableID) != null){
+            return true;
+        }
+        throw new RuntimeException("Cannot delete table that does not exist in schema: " + tableID);
+    }
+    @Override public String emitSQL() {
+        return "DROP TABLE " + tableID + ";";
+    }
+}
+
+class DeleteRowNode extends ASTNode{
+    String tableID;
+    ConjoinedComparisonNode whereClause; // null if no where clause
+    public DeleteRowNode(String tableID, ConjoinedComparisonNode whereClause) {
+        this.tableID = tableID;
+        this.whereClause = whereClause;
+    }
+    @Override public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        Schema.Table t = schema.getTable(tableID);
+        if(t == null){
+            throw new RuntimeException("Table not found: " + tableID);
+        }
+        List<Schema.Table> scope = new ArrayList<>();
+        scope.add(t);
+        if(whereClause != null && !whereClause.validate(schema, scope)){
+            throw new RuntimeException("Invalid where clause in delete statement");
+        }
+        return true;
+    }
+    @Override public String emitSQL() {
+        return "DELETE FROM " + tableID +
+            (whereClause != null ? " WHERE " + whereClause.emitSQL() : "") + ";";
+    }
+}
+
 // need to be able to distinguish what a value is
 abstract class Value{
     public abstract Object getValue();
