@@ -39,7 +39,7 @@ public class CreateSchemaVisitor extends schema_grammarBaseVisitor<Void> {
             if(constraintCtx.getText().equals("PRIMARYKEY")){
                 throw new RuntimeException("Foreign key cannot be a primary key");
             }
-            constraints.add(ctx.getText());
+            constraints.add(constraintCtx.getText());
         }
         constraints.add("references " + ctx.refTable.getText());
         Schema.Attribute newAttr = new Schema.Attribute(attrName, dataType, constraints);

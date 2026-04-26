@@ -100,16 +100,14 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
     //create a join clause node that represents the join clause
 
 	@Override public ASTNode visitCreateTable(liteQLParser.CreateTableContext ctx) { 
-        return null;
-     }
-    //unsure if this is necessary now
-    // @Override public ASTNode visitWhereClause(liteQLParser.WhereClauseContext ctx) { 
-    //     //WITH conjoinedAttrComparison;
-    //     return visit(ctx.conjoinedAttrComparison());
-    //  }
-
-     //only used in non select statement
-     //this works by getting the attribute expression on the left and recursively building a "tree" to represent the expr
+        List<CreateAttributeNode> attributes = new ArrayList<>();
+        String tableString = ctx.tablename.getText();
+        for(liteQLParser.CreateAttrContext attrCtx : ctx.createAttrList().createAttr()){
+            attributes.add((CreateAttributeNode) visit(attrCtx));
+        }
+        return new CreateTableNode(tableString, attributes);
+    }
+    
     @Override
     public ASTNode visitConjoinedAttrComparison(liteQLParser.ConjoinedAttrComparisonContext ctx) {
         AttributeComparisonNode left = (AttributeComparisonNode) visit(ctx.attrComparison());;
@@ -173,7 +171,30 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
             throw new RuntimeException("Invalid value in assignment statement");
         }
         return new AssignmentStatementNode(attribute, value);
+    }
+    
+    @Override public ASTNode visitCreateAttrWithConstraint(liteQLParser.CreateAttrWithConstraintContext ctx) { 
+        List<String> constraints = new ArrayList<>();
+        List<String> fkConstraints = new ArrayList<>();
+        for(liteQLParser.ConstraintContext constraintCtx : ctx.constraintList().constraint()){
+            if(constraintCtx instanceof liteQLParser.NotnullContext){
+                constraints.add("NOTNULL");
+            } else if(constraintCtx instanceof liteQLParser.PkContext){
+                constraints.add("PRIMARYKEY");
+            } else if(constraintCtx instanceof liteQLParser.FkContext){
+                fkConstraints.add("references " +((liteQLParser.FkContext)constraintCtx).tablename.getText());
+            } else {
+                throw new RuntimeException("Invalid constraint in create attribute statement");
+            }
+            
+        }
+        return new CreateAttributeNode(ctx.name.getText(),getType(ctx.type().getText()),constraints, fkConstraints);
      }
+
+	@Override public ASTNode visitCreateAttrNoConstraint(liteQLParser.CreateAttrNoConstraintContext ctx) { 
+        return new CreateAttributeNode(ctx.name.getText(),getType(ctx.type().getText()),new ArrayList<>(), new ArrayList<>());
+     }
+
 
     @Override public ASTNode visitFullschema(liteQLParser.FullschemaContext ctx) { /*change to something like sqlEmiter.emit(".fullschema") */ return null;}
 	
@@ -198,5 +219,16 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
             attributes.add(new AttributeReference(parts.length > 1 ? parts[0] : null, parts[parts.length - 1]));
         }
         return attributes;
+    }
+    public String getType(String type){
+        if(type.equals("int")){
+            return "INTEGER";
+        } else if(type.equals("double")){
+            return "REAL";
+        } else if(type.equals("String") || type.equals("boolean")){
+            return "TEXT";
+        } else {
+            throw new RuntimeException("Invalid type in create table statement");
+        }
     }
 }

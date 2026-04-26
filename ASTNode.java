@@ -530,6 +530,115 @@ class AssignmentListNode extends ASTNode{
     }
 }
 
+class CreateTableNode extends ASTNode{
+    List<CreateAttributeNode> attributes;
+    String tableID;
+    public CreateTableNode(String tableID, List<CreateAttributeNode> attributes) {
+        this.tableID = tableID;
+        this.attributes = attributes;
+    }
+    @Override
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        if(schema.hasTable(tableID)){
+            throw new RuntimeException("Table already exists in schema: " + tableID);
+        }
+        for(CreateAttributeNode attribute: attributes){
+            if(!attribute.validate(schema, tablesInScope)){
+                throw new RuntimeException("Invalid attribute in create table statement");
+            }
+        }
+        createTable();
+        return true;
+    }
+    @Override
+    public String emitSQL() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("CREATE TABLE ").append(tableID).append(" (\n");
+        for(int i = 0; i < attributes.size(); i++){
+            sb.append("\t").append(attributes.get(i).emitSQL());
+            if(i < attributes.size() - 1){
+                sb.append(",\n ");
+            }
+        }
+        sb.append(");");
+        return sb.toString();
+    }
+    private void createTable(){
+        Schema.Table newTable = new Schema.Table(tableID);
+        for(CreateAttributeNode attrNode: attributes){
+            ArrayList<String> constraints = new ArrayList<>();
+            for(String constraint: attrNode.constraints){
+                constraints.add(constraint);
+            }
+            for(String fk : attrNode.fkReferences){
+                constraints.add(fk);
+            }
+            Schema.Attribute newAttr = new Schema.Attribute(attrNode.name, attrNode.type, constraints);
+            newTable.attributes.add(newAttr);
+        }
+        Schema.instance.tables.add(newTable);
+    }
+}
+class CreateAttributeNode extends ASTNode{
+    String name;
+    String type;
+    List<String> constraints;
+    List<String> fkReferences; // list of tables this attribute has foreign key references to
+    public CreateAttributeNode(String name, String type, List<String> constraints, List<String> fkReferences) {
+        this.name = name;
+        this.type = type;
+        this.constraints = constraints;
+        this.fkReferences = fkReferences;
+    }
+    @Override
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        if(!type.equals("INTEGER") && !type.equals("REAL") && !type.equals("TEXT")){
+            throw new RuntimeException("Invalid attribute type: " + type);
+        }
+        for(String constraint: constraints) {
+            if (!constraint.equals("NOTNULL") && !constraint.equals("PRIMARYKEY")) {
+                throw new RuntimeException("Invalid constraint: " + constraint);
+            }
+        }
+        for(String fk : fkReferences){
+            if(fk.startsWith("references ")){
+                String refTableName = fk.substring("references ".length());
+                if(schema.getTable(refTableName) == null){
+                    throw new RuntimeException("Referenced table not found in schema: " + refTableName);
+                }else if(schema.getTable(refTableName).getAttribute(name) == null){
+                    throw new RuntimeException("Referenced attribute not found in referenced table: " + name);
+                }else if(schema.getTable(refTableName).getAttribute(name).type != type){
+                    throw new RuntimeException("Type mismatch in foreign key reference: " + type + " vs " + schema.getTable(refTableName).getAttribute(name).type);
+                }
+            }
+        }
+        return true;
+    }
+    @Override
+    public String emitSQL() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(name).append(" ").append(type);
+        for(String constraint: constraints){
+            sb.append(" ").append(getConstraint(constraint));
+        }
+        for(String fk : fkReferences){
+            if(fk.startsWith("references ")){
+                String refTableName = fk.substring("references ".length());
+                sb.append(" REFERENCES ").append(refTableName).append("(").append(name).append(")");
+            }
+        }
+        return sb.toString();
+    }
+    public static String getConstraint(String constraint){
+        if(constraint.equals("NOTNULL")){
+            return "NOT NULL";
+        } else if(constraint.equals("PRIMARYKEY")){
+            return "PRIMARY KEY";
+        } else {
+            throw new RuntimeException("Invalid constraint in create table statement");
+        }
+    }
+}
 // need to be able to distinguish what a value is
 abstract class Value{
     public abstract Object getValue();

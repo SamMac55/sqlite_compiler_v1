@@ -46,8 +46,9 @@ havingClause: HAVING conjoinedAttrComparison;
 
 //CONSTRAINTS
 constraintList: constraint (',' constraint)*;
-constraint: NOT NULL
-        |   'pk'
+constraint: NOT NULL #notnull
+        |   'pk' #pk
+        | 'reference' tablename=ID #fk
         ;
 
 //SELECTING ATTRIBUTES
@@ -62,7 +63,6 @@ attributeList: attribute (',' attribute)*;
 //how do we create a new attribute?
 createAttr: type name=ID '('constraintList')'           #createAttrWithConstraint
         |   type name=ID                                #createAttrNoConstraint
-        |   'reference' tablename=ID USING type fkID=ID #createAttrReference
         ;
 
 //how will a list of new attributes look like when creating table?
