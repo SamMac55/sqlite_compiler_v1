@@ -374,6 +374,7 @@ class DeleteTableNode extends ASTNode{
     }
     @Override public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
         if(schema.getTable(tableID) != null){
+            schema.tables.remove(schema.getTable(tableID));
             return true;
         }
         throw new RuntimeException("Cannot delete table that does not exist in schema: " + tableID);
@@ -611,7 +612,7 @@ class CreateAttributeNode extends ASTNode{
                     throw new RuntimeException("Referenced table not found in schema: " + refTableName);
                 }else if(schema.getTable(refTableName).getAttribute(name) == null){
                     throw new RuntimeException("Referenced attribute not found in referenced table: " + name);
-                }else if(schema.getTable(refTableName).getAttribute(name).type != type){
+                }else if(!schema.getTable(refTableName).getAttribute(name).type.equals(type)){
                     throw new RuntimeException("Type mismatch in foreign key reference: " + type + " vs " + schema.getTable(refTableName).getAttribute(name).type);
                 }
             }

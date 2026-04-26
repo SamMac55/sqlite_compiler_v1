@@ -19,7 +19,3 @@ employees all sorted by salary desc;
 employees first_name,last_name sorted by last_name asc;
 //multiple order attributes
 employees all sorted by department_id,salary desc;
-
-//joins
-employees all with departments all using department_id;
-employees first_name,last_name with departments dept_name using department_id;

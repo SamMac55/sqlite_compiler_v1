@@ -1,0 +1,19 @@
+new table test_table {
+int id(pk),
+String name,
+double value
+};
+
+new table simple {
+int num,
+String text
+};
+
+new table fk_example {
+int department_id(reference departments),
+String note
+};
+
+test_table all;
+simple num,text;
+fk_example note with departments department_id using department_id;

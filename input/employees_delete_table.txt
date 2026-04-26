@@ -1,0 +1,3 @@
+remove table employees;
+
+employees all;

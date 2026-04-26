@@ -1,0 +1,27 @@
+employees all;
+
+employees first_name,last_name;
+
+employees all with salary greater than 50000;
+
+employees first_name,last_name with salary greater than 40000 and department_id is 1;
+
+employees first_name with departments dept_name using department_id;
+
+employees first_name,last_name with departments dept_name using department_id with dept_name is 'HR';
+
+employees all with departments all using department_id sorted by salary desc;
+
+employees first_name with departments dept_name using department_id sorted by dept_name asc;
+
+employees department_id group by department_id;
+
+employees department_id with departments dept_name using department_id group by employees.department_id;
+
+employees department_id with departments dept_name using department_id group by employees.department_id having employees.department_id greater than 1;
+
+find 5 employees first_name,last_name with departments dept_name using department_id sorted by last_name asc with salary greater than 50000;
+
+employees first_name with employee_projects project_id using employee_id;
+
+employee_projects all with projects all using project_id;

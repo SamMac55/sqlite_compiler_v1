@@ -1,7 +1,0 @@
-new table testing {
-    int e_id (pk),
-	String first_name (not null),
-	String last_name (not null),
-	double salary,
-	int department_id (not null, reference departments)
-};
