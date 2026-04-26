@@ -24,7 +24,7 @@ constraint: NOT NULL
         |   PRIMARY KEY
         ;
 
-foreignKey: FOREIGN KEY '(' tableattr=ID ')' REFERENCES refTable=ID '(' refColumn=ID ')' ;
+foreignKey: attributeName=ID dataType? constraint* REFERENCES refTable=ID '(' refcolumn=ID ')';
 
 CREATE: 'CREATE';
 TABLE: 'TABLE';

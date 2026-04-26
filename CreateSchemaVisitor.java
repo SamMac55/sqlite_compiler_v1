@@ -32,9 +32,18 @@ public class CreateSchemaVisitor extends schema_grammarBaseVisitor<Void> {
 	
 	// Later I want to fix foriegn key constratists to be more consistent with col name + talbe name
 	@Override public Void visitForeignKey(schema_grammarParser.ForeignKeyContext ctx) { 
-        if(currTable.hasAttribute(ctx.tableattr.getText())) {
-            currTable.getAttribute(ctx.tableattr.getText()).constraints.add("references " + ctx.refTable.getText());
+        String attrName = ctx.attributeName.getText();
+        String dataType = ctx.dataType() != null ? ctx.dataType().getText(): null;
+        ArrayList<String> constraints = new ArrayList<>();
+        for (schema_grammarParser.ConstraintContext constraintCtx : ctx.constraint()) {
+            if(constraintCtx.getText().equals("PRIMARYKEY")){
+                throw new RuntimeException("Foreign key cannot be a primary key");
+            }
+            constraints.add(ctx.getText());
         }
+        constraints.add("references " + ctx.refTable.getText());
+        Schema.Attribute newAttr = new Schema.Attribute(attrName, dataType, constraints);
+        currTable.attributes.add(newAttr);
         return null;
     }
     public Schema getSchema() {
