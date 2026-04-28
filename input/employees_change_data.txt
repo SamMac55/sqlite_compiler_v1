@@ -1,0 +1,20 @@
+// create table
+new table test_table {
+int id(pk),
+String name
+};
+
+// insert
+add employees employee_id=900,first_name='John',last_name='Doe',email='john@example.com',salary=50000,department_id=1;
+
+// update
+change employees set salary=60000 with employee_id is 1;
+
+// delete row
+remove employees with employee_id is 1;
+
+// drop table
+remove table test_table;
+
+// sanity select
+employees all;

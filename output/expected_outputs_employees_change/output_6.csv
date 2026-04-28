@@ -1,0 +1,6 @@
+employee_id,first_name,last_name,email,salary,department_id
+2,Bob,Smith,bob.smith@example.com,85000.0,2
+3,Carol,Davis,carol.davis@example.com,90000.0,2
+4,David,Lee,david.lee@example.com,70000.0,3
+5,Eva,Brown,eva.brown@example.com,65000.0,1
+900,John,Doe,john@example.com,50000.0,1

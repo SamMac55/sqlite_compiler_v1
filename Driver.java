@@ -1,4 +1,6 @@
+import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
 import java.util.ArrayList;
 
 import org.antlr.v4.runtime.CharStream;
@@ -10,7 +12,19 @@ public class Driver {
     public static void main(String[] args) throws Exception {
         CreateSchemaVisitor schemaVisitor;
         ArrayList<String> statements = new ArrayList<>();
+        String dbFile = args[0];
         try{
+            //get the name of the database file
+
+            ProcessBuilder pb = new ProcessBuilder("python", "extract_schema.py", dbFile);
+            pb.inheritIO();
+            Process p = pb.start();
+
+            int exitCode = p.waitFor();
+            if (exitCode != 0) {
+                throw new RuntimeException("Schema extraction failed");
+            }
+
             //create schema symbol table
             CharStream schemaInput = CharStreams.fromFileName("data/schema.txt");
             schema_grammarLexer schemaLexer = new schema_grammarLexer(schemaInput);
@@ -54,13 +68,24 @@ public class Driver {
             //     }
             // }
         }catch(FileNotFoundException e){
-            System.out.println("Schema file not created please create it");
+            System.out.println("Schema file or database file does not exist");
             return;
         }catch(RuntimeException e){
             e.printStackTrace();
         }
+        BufferedWriter writer = new BufferedWriter(new FileWriter("data/output.sql"));
         for(String stmt : statements){
-            System.out.println(stmt + "\n");
+            writer.write(stmt);
+            writer.newLine();
+        }
+        writer.close();
+        try{
+            ProcessBuilder pb2 = new ProcessBuilder("python", "run_queries.py", dbFile);
+            pb2.inheritIO();
+            Process p2 = pb2.start();
+            p2.waitFor();
+        }catch(Exception e){
+            System.out.println("Unable to execute statements against database.");
         }
     }
 }

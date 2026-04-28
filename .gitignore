@@ -13,3 +13,5 @@ schema_grammar*.java
 
 data/script.sql
 data/schema.sql
+
+.venv

@@ -1,0 +1,26 @@
+// basic select
+employees all;
+
+// projection
+employees first_name,last_name;
+
+// where
+employees all with salary greater than 50000;
+
+// conjunction
+employees all with salary greater than 50000 and department_id is 1;
+
+// join
+employees first_name,last_name with departments dept_name using department_id;
+
+// join + filter
+employees first_name,last_name with departments dept_name using department_id with dept_name is 'Human Resources';
+
+// ordering
+employees all sorted by salary desc;
+
+// grouping + having
+employees department_id group by department_id having department_id greater than 1;
+
+// complex integration
+find 5 employees first_name,last_name with departments dept_name using department_id sorted by last_name asc with salary greater than 50000;
