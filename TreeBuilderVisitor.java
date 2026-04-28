@@ -45,14 +45,7 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
         //get the limit (-1 means no limit)
         int limit = -1;
         if(ctx.limitClause() != null){
-            try{
-                limit = Integer.parseInt(ctx.limitClause().num.getText());
-                if(limit < 0){
-                    throw new RuntimeException("Limit must be a non-negative integer for the select statement");
-                }
-            } catch(NumberFormatException e){
-                throw new RuntimeException("Limit must be a non-negative integer for the select statement");
-            }
+            limit = Integer.parseInt(ctx.limitClause().INTEGER().getText());
         }
         JoinNode join = null;
         if(ctx.joinClause()!=null){

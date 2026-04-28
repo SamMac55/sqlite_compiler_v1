@@ -60,7 +60,7 @@ class AttributeComparisonNode extends ASTNode {
             if (rhs instanceof AttributeReference ref) {
                 Schema.Attribute rhsAttr = ASTNode.resolveAttribute(tablesInScope, ref.tableName, ref.value);
 
-                if (rhsAttr == null) throw new RuntimeException("Invalid attribute in comparison: " + ref.value);
+                if (rhsAttr == null) throw new RuntimeException("Invalid attribute in rhs of comparison: " + ref.value);
 
                 return validAttr.type.equals(rhsAttr.type);
             }
@@ -74,7 +74,7 @@ class AttributeComparisonNode extends ASTNode {
                 return true;
             }
         }
-        throw new RuntimeException("Invalid attribute in comparison: " + lhs.value);
+        throw new RuntimeException("Invalid attribute in lhs of comparison: " + lhs.value);
     }
     @Override public String emitSQL() {
         String lhsStr = (lhs.tableName != null)
@@ -110,7 +110,7 @@ class ConjoinedComparisonNode extends ASTNode{
         }
 
         if (right == null) {
-            throw new RuntimeException("Hanging conjunction");
+            throw new RuntimeException("Hanging conjunction in attribute comparison: " + conjunction);
         }
 
         boolean leftValid  = left.validate(schema, tablesInScope);
@@ -159,26 +159,22 @@ class SelectNode extends ASTNode{
         }
 
         if (whereClause != null) {
-            if (!whereClause.validate(schema, scope)) throw new RuntimeException("Invalid where clause");
+            if (!whereClause.validate(schema, scope)) throw new RuntimeException("Invalid where clause in select statement");
         }
 
         if(orderBy != null){
-            if(!orderBy.validate(schema, scope)) throw new RuntimeException("Invalid order by clause");
+            if(!orderBy.validate(schema, scope)) throw new RuntimeException("Invalid order by clause in select statement");
         }
 
         for(AttributeReference attr: selectedAttributes){
             if (ASTNode.resolveAttribute(scope, mainTableName, attr.getName()) == null) {
-                throw new RuntimeException("Selected attribute not found in any table: " + attr);
+                throw new RuntimeException("Selected attribute not found in main table: " + attr);
             }
-            if(attr.getTableName() != null && !attr.getTableName().equals(mainTableName)){
-                throw new RuntimeException("Selected attribute has invalid table qualifier: " + attr);
-            }
-            
         }
         ArrayList<AttributeReference> allSelected = new ArrayList<>(selectedAttributes);
         allSelected.addAll(selectedAttributes);
         if(groupBy != null){
-            if(!groupBy.validate(schema, scope)) throw new RuntimeException("Invalid group by clause");
+            if(!groupBy.validate(schema, scope)) throw new RuntimeException("Invalid group by clause in select statement");
             allSelected.addAll(join == null || join.selectedAttributes == null ? new ArrayList<>() : join.selectedAttributes);
             for(AttributeReference attr: groupBy.attributes){
                 boolean found = false;
@@ -189,7 +185,7 @@ class SelectNode extends ASTNode{
                     }
                 }
                 if(!found){
-                    throw new RuntimeException("Group by attribute not found in selected attributes: " + attr);
+                    throw new RuntimeException("Non aggregate attribute in group by clause: " + attr);
                 }
             }
         }
@@ -264,11 +260,11 @@ class JoinNode extends ASTNode{
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
         if(schema.getTable(table) == null){
-            throw new RuntimeException("Joined table not found: " + table);
+            throw new RuntimeException("Joined table not found in schema: " + table);
         }
         for(Schema.Table t: tablesInScope){
             if(!t.hasAttribute(onCondition)){
-                throw new RuntimeException("Invalid attribute in join condition: " + onCondition);
+                throw new RuntimeException("Invalid attribute in join condition, attribute must be in both main and joined tables: " + onCondition);
             }
         }
         for(AttributeReference attr: selectedAttributes){
@@ -334,7 +330,7 @@ class GroupNode extends ASTNode{
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
         if(having != null && !having.validate(schema,tablesInScope))
-            throw new RuntimeException("Invalid having clause");
+            throw new RuntimeException("Invalid having clause for select statement\'s groupby");
         for(AttributeReference attr: attributes){
             boolean found = false;
 
@@ -373,7 +369,7 @@ class HavingNode extends ASTNode{
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
         if(!condition.validate(schema, tablesInScope))
-            throw new RuntimeException("Invalid having clause");
+            throw new RuntimeException("Invalid having clause for group by");
         return true;
     }
     @Override public String emitSQL() {
@@ -408,7 +404,7 @@ class DeleteRowNode extends ASTNode{
     @Override public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
         Schema.Table t = schema.getTable(tableID);
         if(t == null){
-            throw new RuntimeException("Table not found: " + tableID);
+            throw new RuntimeException("Cannot delete a row from a table that does not exist: " + tableID);
         }
         List<Schema.Table> scope = new ArrayList<>();
         scope.add(t);
@@ -435,7 +431,7 @@ class UpdateNode extends ASTNode{
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
         Schema.Table t = schema.getTable(tableID);
         if(t == null){
-            throw new RuntimeException("Table not found: " + tableID);
+            throw new RuntimeException("Cannot update row for table that does not exist: " + tableID);
         }
         List<Schema.Table> scope = new ArrayList<>();
         scope.add(t);
@@ -465,7 +461,7 @@ class InsertNode extends ASTNode{
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
         Schema.Table t = schema.getTable(tableID);
         if(t == null){
-            throw new RuntimeException("Table not found: " + tableID);
+            throw new RuntimeException("Cannot insert into a table that does not exist: " + tableID);
         }
         List<Schema.Table> scope = new ArrayList<>();
         scope.add(t);
@@ -503,7 +499,7 @@ class AssignmentStatementNode extends ASTNode{
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
         Schema.Attribute attr = ASTNode.resolveAttribute(tablesInScope, attribute.getTableName(), attribute.getName());
         if(attr == null){
-            throw new RuntimeException("Attribute not found: " + attribute.toString());
+            throw new RuntimeException("Attribute not found in schema: " + attribute.toString());
         }
         String type = attr.type;
         String valueType = value.getValueType();
@@ -531,7 +527,7 @@ class AssignmentListNode extends ASTNode{
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
         for(AssignmentStatementNode assignment: assignments){
             if(!assignment.validate(schema, tablesInScope)){
-                throw new RuntimeException("Invalid assignment in set clause");
+                throw new RuntimeException("Invalid assignment in set clause for update statement");
             }
         }
         return true;
@@ -612,11 +608,11 @@ class CreateAttributeNode extends ASTNode{
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
         if(!type.equals("INTEGER") && !type.equals("REAL") && !type.equals("TEXT")){
-            throw new RuntimeException("Invalid attribute type: " + type);
+            throw new RuntimeException("Invalid/unsupported attribute type: " + type);
         }
         for(String constraint: constraints) {
             if (!constraint.equals("NOTNULL") && !constraint.equals("PRIMARYKEY")) {
-                throw new RuntimeException("Invalid constraint: " + constraint);
+                throw new RuntimeException("Invalid/unsupported constraint: " + constraint);
             }
         }
         for(String fk : fkReferences){
@@ -654,7 +650,7 @@ class CreateAttributeNode extends ASTNode{
         } else if(constraint.equals("PRIMARYKEY")){
             return "PRIMARY KEY";
         } else {
-            throw new RuntimeException("Invalid constraint in create table statement");
+            throw new RuntimeException("Invalid/unsupported constraint in create table statement");
         }
     }
 }

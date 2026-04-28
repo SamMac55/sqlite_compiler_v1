@@ -9,6 +9,7 @@ import org.antlr.v4.runtime.tree.ParseTree;
 public class Driver {
     public static void main(String[] args) throws Exception {
         CreateSchemaVisitor schemaVisitor;
+        ArrayList<String> statements = new ArrayList<>();
         try{
             //create schema symbol table
             CharStream schemaInput = CharStreams.fromFileName("data/schema.txt");
@@ -36,11 +37,10 @@ public class Driver {
 
             TreeBuilderVisitor builder = new TreeBuilderVisitor();
             builder.visit(tree);
-
             // iterate over collected AST nodes
             for (ASTNode node : builder.statements) {
                 if (node.validate(schema, new ArrayList<>())) {
-                    System.out.println(node.emitSQL() + "\n");
+                    statements.add(node.emitSQL());
                 } else {
                     System.out.println("Invalid statement");
                 }
@@ -57,9 +57,10 @@ public class Driver {
             System.out.println("Schema file not created please create it");
             return;
         }catch(RuntimeException e){
-            System.out.println("Error: " + e.getMessage());
-            return;
+            e.printStackTrace();
         }
-        
+        for(String stmt : statements){
+            System.out.println(stmt + "\n");
+        }
     }
 }
