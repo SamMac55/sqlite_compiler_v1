@@ -452,8 +452,8 @@ class UpdateNode extends ASTNode{
 }
 class InsertNode extends ASTNode{
     String tableID;
-    AssignmentListNode assignments;
-    public InsertNode(String tableID, AssignmentListNode assignments) {
+    ArrayList<AssignmentListNode> assignments;
+    public InsertNode(String tableID, ArrayList<AssignmentListNode> assignments) {
         this.tableID = tableID;
         this.assignments = assignments;
      }
@@ -465,25 +465,29 @@ class InsertNode extends ASTNode{
         }
         List<Schema.Table> scope = new ArrayList<>();
         scope.add(t);
-        if(!assignments.validate(schema, scope)){
+        for(AssignmentListNode assign : assignments){
+            if(!assign.validate(schema, scope)){
             throw new RuntimeException("Invalid assignment list in insert statement");
+        }
         }
         return true;
     }
     @Override
     public String emitSQL() {
         StringBuilder sb = new StringBuilder();
-         sb.append("INSERT INTO ").append(tableID).append(" (");
-         List<String> columns = new ArrayList<>();
-         List<String> values = new ArrayList<>();
-         for(AssignmentStatementNode assignment: assignments.assignments){
-             columns.add(assignment.attribute.getName());
-             values.add(assignment.value.getValue().toString());
-         }
-         sb.append(String.join(", ", columns));
-         sb.append(") VALUES (");
-         sb.append(String.join(", ", values));
-         sb.append(");");
+        for(AssignmentListNode list : assignments){
+            sb.append("INSERT INTO ").append(tableID).append(" (");
+            List<String> columns = new ArrayList<>();
+            List<String> values = new ArrayList<>();
+            for(AssignmentStatementNode assignment: list.assignments){
+                columns.add(assignment.attribute.getName());
+                values.add(assignment.value.getValue().toString());
+            }
+            sb.append(String.join(", ", columns));
+            sb.append(") VALUES (");
+            sb.append(String.join(", ", values));
+            sb.append(");\n");
+        }
          return sb.toString();
     }
 }

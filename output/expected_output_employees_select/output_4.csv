@@ -1,3 +1,2 @@
-employee_id,first_name,last_name,email,salary,department_id
-1,Alice,Johnson,alice.johnson@example.com,60000.0,1
-5,Eva,Brown,eva.brown@example.com,65000.0,1
+project_name
+Marketing Campaign

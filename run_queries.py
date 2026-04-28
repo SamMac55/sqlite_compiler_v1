@@ -7,7 +7,7 @@ db_file = sys.argv[1]
 conn = sqlite3.connect(db_file)
 cursor = conn.cursor()
 
-with open("data/output.sql") as f:
+with open("output/output.sql") as f:
     sql = f.read()
 
 statements = sql.split(";")

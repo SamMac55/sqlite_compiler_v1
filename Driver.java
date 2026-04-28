@@ -73,7 +73,7 @@ public class Driver {
         }catch(RuntimeException e){
             e.printStackTrace();
         }
-        BufferedWriter writer = new BufferedWriter(new FileWriter("data/output.sql"));
+        BufferedWriter writer = new BufferedWriter(new FileWriter("output/output.sql"));
         for(String stmt : statements){
             writer.write(stmt);
             writer.newLine();

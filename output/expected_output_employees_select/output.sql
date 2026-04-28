@@ -1,9 +1,5 @@
 SELECT * FROM employees;
-SELECT employees.first_name, employees.last_name FROM employees;
-SELECT * FROM employees WHERE salary > 50000;
-SELECT * FROM employees WHERE salary > 50000 AND department_id = 1;
-SELECT employees.first_name, employees.last_name, departments.dept_name FROM employees JOIN departments ON departments.department_id = employees.department_id;
-SELECT employees.first_name, employees.last_name, departments.dept_name FROM employees JOIN departments ON departments.department_id = employees.department_id WHERE dept_name = 'Human Resources';
-SELECT * FROM employees ORDER BY salary DESC;
-SELECT employees.department_id FROM employees GROUP BY department_id HAVING department_id > 1;
-SELECT employees.first_name, employees.last_name, departments.dept_name FROM employees JOIN departments ON departments.department_id = employees.department_id WHERE salary > 50000 ORDER BY last_name ASC LIMIT 5;
+SELECT employees.first_name, employees.last_name, employees.salary FROM employees ORDER BY salary DESC;
+SELECT employees.first_name, employees.last_name, employee_projects.emp_role FROM employees JOIN employee_projects ON employee_projects.employee_id = employees.employee_id WHERE project_id = 1;
+SELECT projects.project_name FROM projects WHERE budget <= 45000;
+SELECT employees.first_name, employees.last_name, employees.salary FROM employees WHERE department_id > 1 ORDER BY salary ASC LIMIT 1;

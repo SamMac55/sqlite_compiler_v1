@@ -1,6 +1,5 @@
-first_name,last_name
-Alice,Johnson
-Bob,Smith
-Carol,Davis
-David,Lee
-Eva,Brown
+first_name,last_name,salary
+Carol,Davis,90000.0
+Bob,Smith,85000.0
+David,Lee,70000.0
+Eva,Brown,65000.0

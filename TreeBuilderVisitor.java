@@ -26,7 +26,11 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
 
 	@Override public ASTNode visitInsert(liteQLParser.InsertContext ctx) { 
         //insert: ADD tableSource assignList  ';';
-        return new InsertNode(ctx.tableSource().getText(), (AssignmentListNode) visit(ctx.assignList()));
+        ArrayList<AssignmentListNode> listOfAssign = new ArrayList<>();
+        for(liteQLParser.AssignListContext assignList : ctx.assignList()){
+            listOfAssign.add((AssignmentListNode) visit(assignList));
+        }
+        return new InsertNode(ctx.tableSource().getText(), listOfAssign);
      }
 
 	@Override public ASTNode visitUpdateRow(liteQLParser.UpdateRowContext ctx) { 
