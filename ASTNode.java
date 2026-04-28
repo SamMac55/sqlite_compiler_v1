@@ -166,10 +166,6 @@ class SelectNode extends ASTNode{
             if(!orderBy.validate(schema, scope)) throw new RuntimeException("Invalid order by clause");
         }
 
-        if(groupBy != null){
-            if(!groupBy.validate(schema, scope)) throw new RuntimeException("Invalid group by clause");
-        }
-
         for(AttributeReference attr: selectedAttributes){
             if (ASTNode.resolveAttribute(scope, mainTableName, attr.getName()) == null) {
                 throw new RuntimeException("Selected attribute not found in any table: " + attr);
@@ -178,6 +174,24 @@ class SelectNode extends ASTNode{
                 throw new RuntimeException("Selected attribute has invalid table qualifier: " + attr);
             }
             
+        }
+        ArrayList<AttributeReference> allSelected = new ArrayList<>(selectedAttributes);
+        allSelected.addAll(selectedAttributes);
+        if(groupBy != null){
+            if(!groupBy.validate(schema, scope)) throw new RuntimeException("Invalid group by clause");
+            allSelected.addAll(join == null || join.selectedAttributes == null ? new ArrayList<>() : join.selectedAttributes);
+            for(AttributeReference attr: groupBy.attributes){
+                boolean found = false;
+                for(AttributeReference selected : allSelected){
+                    if(selected.getName().equals(attr.getName())){
+                        found = true;
+                        break;
+                    }
+                }
+                if(!found){
+                    throw new RuntimeException("Group by attribute not found in selected attributes: " + attr);
+                }
+            }
         }
         return true;
     }
