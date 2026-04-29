@@ -118,7 +118,9 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
     //only used in non select statements
     @Override
     public ASTNode visitAttrComparison(liteQLParser.AttrComparisonContext ctx) {
-        AttributeReference lhs = new AttributeReference(ctx.attribute().tablename != null ? ctx.attribute().tablename.getText() : null, ctx.attribute().attr.getText());
+        AttributeReference lhs = new AttributeReference(ctx.attribute().tablename != null ? ctx.attribute().tablename.getText() : null, 
+                                                        ctx.attribute().attr.getText(),
+                                                        ctx.attribute().function()==null ? null : ctx.attribute().function().getText());
         String op  = getComparisonSymbol(ctx.comparison());
         Value rhs = getValueFromContext(ctx.value());
         return new AttributeComparisonNode(lhs, op, rhs);
@@ -134,7 +136,9 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
     }
     @Override public ASTNode visitAssignmentStmt(liteQLParser.AssignmentStmtContext ctx) { 
         //attribute '=' value ';';
-        AttributeReference attribute = new AttributeReference(ctx.attribute().tablename != null ? ctx.attribute().tablename.getText() : null, ctx.attribute().attr.getText());
+        AttributeReference attribute = new AttributeReference(ctx.attribute().tablename != null ? ctx.attribute().tablename.getText() : null, 
+                                                            ctx.attribute().attr.getText(),
+                                                            ctx.attribute().function()==null ? null : ctx.attribute().function().getText());
         Value value = getValueFromContext(ctx.value());
         return new AssignmentStatementNode(attribute, value);
     }
@@ -181,14 +185,14 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
             return attributes; //should be empty :)
         }
         for(liteQLParser.AttributeContext attr : ((liteQLParser.ListContext)ctx).attributeList().attribute()){
-            attributes.add(new AttributeReference(tablename,attr.attr.getText()));
+            attributes.add(new AttributeReference(tablename,attr.attr.getText(),attr.function()==null ? null : attr.function().getText()));
         }
         return attributes;
     }
     public List<AttributeReference> getAttributeReferences(liteQLParser.AttributeListContext ctx){
         List<AttributeReference> attributes = new ArrayList<>();
         for(liteQLParser.AttributeContext attr : (ctx.attribute())){
-            attributes.add(new AttributeReference(attr.tablename ==null ? null: attr.tablename.getText(),attr.attr.getText()));
+            attributes.add(new AttributeReference(attr.tablename ==null ? null: attr.tablename.getText(),attr.attr.getText(),attr.function()==null ? null : attr.function().getText()));
         }
         return attributes;
     }
@@ -212,7 +216,9 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
         } else if(ctx.STRING() != null){
             value = new StringLiteral(ctx.STRING().getText());
         } else if(ctx.attribute() != null){
-            value = new AttributeReference(ctx.attribute().tablename != null ? ctx.attribute().tablename.getText() : null, ctx.attribute().attr.getText());
+            value = new AttributeReference(ctx.attribute().tablename != null ? ctx.attribute().tablename.getText() : null, 
+                                            ctx.attribute().attr.getText(), 
+                                            ctx.attribute().function()==null ? null : ctx.attribute().function().getText());
         }else if (ctx.NULL() != null){
             value = new NullLiteral();
         }else if (ctx.DOUBLE() != null){

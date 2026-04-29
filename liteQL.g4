@@ -85,7 +85,7 @@ assignmentStmt: attr=attribute '=' val=value; // assignments look like first_nam
 
 //NAMES
 tableSource: tablename=ID ; //a table source is just a name
-attribute: attr=ID | tablename=ID'.'attr=ID; //an attribute is also just an name
+attribute: function? attr=ID | function? tablename=ID'.'attr=ID; //an attribute is also just an name
 
 //BASICS
 //comparisons
@@ -114,7 +114,7 @@ type: 'int'
     | 'String'
     | 'boolean'
     ;
-
+function: MIN | MAX | AVG | COUNT | TOTAL;
 //direct commands
 fullschema: 'get schema;';
 tables: 'get tables;';
@@ -149,3 +149,8 @@ MOST: 'most';
 NULL: 'null';
 DECLARE: 'declare';
 ALL: 'all';
+COUNT: 'count';
+MIN: 'min';
+MAX: 'max';
+AVG: 'average';
+TOTAL: 'total';

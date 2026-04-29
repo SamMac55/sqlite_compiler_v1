@@ -20,7 +20,6 @@ public abstract class ASTNode {
                 found = t.getAttribute(name);
             }
         }
-
         return found;
     }
     //overloaded version that takes a table name to check if the attribute exists in a specific table
@@ -97,20 +96,26 @@ class AttributeComparisonNode extends ASTNode {
         throw new RuntimeException("Invalid attribute in lhs of comparison: " + lhs.value);
     }
     @Override public String emitSQL() {
+        String actualOp = op;
         String lhsStr = (lhs.tableName != null)
             ? lhs.tableName + "." + lhs.value
             : lhs.value;
-
         String rhsStr;
         if (rhs instanceof AttributeReference ref) {
             rhsStr = (ref.tableName != null)
                 ? ref.tableName + "." + ref.value
                 : ref.value;
         } else {
-            rhsStr = rhs.getValue().toString();
+            if(rhs.getValue() == null){
+                rhsStr = "NULL";
+                if(op.equals("=")) actualOp = "IS";
+                else if(op.equals("!=")) actualOp = "IS NOT";
+            }else {
+                rhsStr = rhs.getValue().toString();
+            }
         }
 
-        return lhsStr + " " + op + " " + rhsStr;
+        return lhsStr + " " + actualOp + " " + rhsStr;
     }
 }
 
@@ -188,16 +193,20 @@ class SelectNode extends ASTNode{
         }
 
         for(AttributeReference attr: selectedAttributes){
-            if (ASTNode.resolveAttribute(scope, attr.getTableName(), attr.getName()) == null) {
+            Schema.Attribute curr = ASTNode.resolveAttribute(scope, attr.getTableName(), attr.getName());
+            if (curr == null) {
                 throw new RuntimeException("Selected attribute not found in table: " + attr.getTableName());
             }else{
                 //we need to count how many attributes are there for each table bc if there are zero its a select * 
                 int count = attributesPerTable.getOrDefault(attr.getTableName(), 0);
                 attributesPerTable.put(attr.getTableName(), count + 1);
+                if(attr.function != null && !(curr.type.equals("REAL") || curr.type.equals("INTEGER")) &&  (attr.function.equals("total") || attr.function.equals("avg"))){
+                    throw new RuntimeException("Cannot do the average or sum of a non-number attribute");
+                }
             }
         }
         if(groupBy != null){
-            if(!groupBy.validate(schema, tablesInScope)) throw new RuntimeException("Invalid group by clause in select statement");
+            if(!groupBy.validate(schema, scope)) throw new RuntimeException("Invalid group by clause in select statement");
             for(AttributeReference selected : selectedAttributes){
                 boolean found = false;
                 for(AttributeReference grouped : groupBy.attributes){
@@ -206,7 +215,7 @@ class SelectNode extends ASTNode{
                         break;
                     }
                 }
-                if(!found){throw new RuntimeException("Non aggregated column in groupby");}
+                if(!found && selected.function == null){throw new RuntimeException("Non aggregated column in groupby");}
             }
         }
         return true;
@@ -220,7 +229,13 @@ class SelectNode extends ASTNode{
         }else{
             for(AttributeReference attr: selectedAttributes){
                 if(attr.getTableName().equals(mainTableName)){
-                    finalAttrs.add(mainTableName + "." + attr.getName());
+                    String func;
+                    if(attr.function !=null){
+                        func = getFunction(attr.function);
+                        finalAttrs.add( func + "(" +  mainTableName + "." + attr.getName() + ")");
+                    }else{
+                        finalAttrs.add(mainTableName + "." + attr.getName());
+                    }
                 }
             }
         }
@@ -229,10 +244,16 @@ class SelectNode extends ASTNode{
                 finalAttrs.add(j.table+".*");
             }else{
                 for(AttributeReference attr: selectedAttributes){
-                if(attr.getTableName().equals(j.table)){
-                    finalAttrs.add(j.table + "." + attr.getName());
+                    if(attr.getTableName().equals(j.table)){
+                        String func;
+                        if(attr.function !=null){
+                            func = getFunction(attr.function);
+                            finalAttrs.add("(" + func + j.table + "." + attr.getName() + ")");
+                        }else{
+                            finalAttrs.add(j.table + "." + attr.getName());
+                        }
+                    }
                 }
-            }
             }
         }
 
@@ -247,6 +268,22 @@ class SelectNode extends ASTNode{
             (groupBy != null ? " " + groupBy.emitSQL() : "") +
             (orderBy != null ? " " + orderBy.emitSQL() : "") +
             (limit != -1 ? " LIMIT " + limit : "") + ";";
+    }
+    public String getFunction(String func){
+        switch (func){
+            case "min":
+                return "MIN";
+            case "max":
+                return "MAX";
+            case "total":
+                return "SUM";
+            case "average":
+                return "AVG";
+            case "count":
+                return "COUNT";
+            default: 
+                return null;
+        }
     }
 }
 
@@ -729,10 +766,17 @@ class NullLiteral extends Value{
 class AttributeReference extends Value{
     String tableName; // null if no table specified
     String value;
-    public AttributeReference(String tableName, String value) {
+    String function;
+    public AttributeReference(String tableName, String value, String function) {
         this.tableName = tableName;
         this.value = value;
+        this.function =function;
     }
+    // public AttributeReference(String tableName, String value) {
+    //     this.tableName = tableName;
+    //     this.value = value;
+    //     this.function =null;
+    // }
     @Override
     public String getValueType() {
         return "ATTRIBUTE";
