@@ -1,0 +1,18 @@
+// new table with no constraints on feed days
+new table animal_diet {
+int diet_id(pk),
+String diet_type (not null),
+int num_feed_days
+};
+
+// inserting into a table with no constraint
+add animal_diet (diet_id = 1,diet_type= 'vegetarian'), (diet_id=2,diet_type='omnivore',num_feed_days=3),(diet_id=3,diet_type='carnivore',num_feed_days=5);
+
+animal_diet all;
+
+// adding that information in
+change animal_diet set num_feed_days=4 with diet_type is 'vegetarian';
+
+animal_diet all with diet_id is 1;
+// remove table 
+remove table animal_diet;

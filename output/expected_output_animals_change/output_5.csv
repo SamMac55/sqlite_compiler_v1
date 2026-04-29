@@ -1,0 +1,4 @@
+diet_id,diet_type,num_feed_days
+1,vegetarian,
+2,omnivore,3
+3,carnivore,5
