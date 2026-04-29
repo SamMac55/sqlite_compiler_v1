@@ -45,21 +45,17 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
         //get the main table name
         String mainTableName = ctx.tableSource().getText();
         //get the selected attributes (empty list means select *)
-        String selectedAttributes = ctx.selectList().getText();
+        List<AttributeReference> selectedAttributes = new ArrayList<>();
+        selectedAttributes.addAll(getAttributeReferences(ctx.selectList(),mainTableName));
         //get the limit (-1 means no limit)
         int limit = -1;
         if(ctx.limitClause() != null){
             limit = Integer.parseInt(ctx.limitClause().INTEGER().getText());
         }
-        JoinNode join = null;
+        List<JoinNode> joins = new ArrayList<>();
         if(ctx.joinClause()!=null){
-            String joinAttributes = ctx.joinClause().selectList().getText().trim();
-            if(joinAttributes.equals("all")){
-                //System.out.println("in line 62");
-                join = new JoinNode(mainTableName, ctx.joinClause().tableSource().getText(), ctx.joinClause().attribute().getText(), new ArrayList<>());
-            }else{
-                join = new JoinNode(mainTableName, ctx.joinClause().tableSource().getText(), ctx.joinClause().attribute().getText(), getAttributeReferences(joinAttributes));
-            }
+            joins.add(new JoinNode(ctx.joinClause().joinTable.getText(), ctx.joinClause().attribute().getText(), ctx.joinClause().othertable.getText()));   
+            selectedAttributes.addAll(getAttributeReferences(ctx.joinClause().selectList(),ctx.joinClause().joinTable.getText()));
         }
         ConjoinedComparisonNode whereCaluse = null;
         if(ctx.whereClause()!=null){
@@ -74,24 +70,21 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
         }
         GroupNode groupBy = null;
         if(ctx.groupClause() != null){
-            String groupByAttributes= ctx.groupClause().attributeList().getText();
             HavingNode having = null;
             if(ctx.havingClause() != null){
                 having = new HavingNode((ConjoinedComparisonNode) visit(ctx.havingClause().conjoinedAttrComparison()));
             }
-            groupBy = new GroupNode(getAttributeReferences(groupByAttributes), having);
+            groupBy = new GroupNode(getAttributeReferences(ctx.groupClause().attributeList()), having);
         }
-        if(selectedAttributes.equals("all")){
-            return new SelectNode(mainTableName, new ArrayList<>(), limit, join, whereCaluse, groupBy, orderBy);
-        }
-        return new SelectNode(mainTableName, getAttributeReferences(selectedAttributes), limit, join, whereCaluse, groupBy, orderBy);
+        
+        return new SelectNode(mainTableName, selectedAttributes, limit, joins, whereCaluse, groupBy, orderBy);
+        
     }
     //create an order node that represents the order clause
     @Override public ASTNode visitOrderClause(liteQLParser.OrderClauseContext ctx) { 
         //ORDER BY attribute (ASC|DESC)? ';';
-        String attributeList = ctx.attributeList().getText();
         String order = ctx.order != null ? ctx.order.getText().toUpperCase() : "ASC"; 
-        return new OrderNode(getAttributeReferences(attributeList), order);
+        return new OrderNode(getAttributeReferences(ctx.attributeList()), order);
     }
 
     //create a join clause node that represents the join clause
@@ -125,20 +118,7 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
     public ASTNode visitAttrComparison(liteQLParser.AttrComparisonContext ctx) {
         AttributeReference lhs = new AttributeReference(ctx.attribute().tablename != null ? ctx.attribute().tablename.getText() : null, ctx.attribute().attr.getText());
         String op  = getComparisonSymbol(ctx.comparison());
-        Value rhs;
-        if(ctx.value().INTEGER() !=null){
-            rhs = new IntLiteral(Integer.parseInt(ctx.value().INTEGER().getText()));
-        } else if(ctx.value().STRING() != null){
-            rhs = new StringLiteral(ctx.value().STRING().getText());
-        } else if(ctx.value().attribute() != null){
-            rhs = new AttributeReference(ctx.value().attribute().tablename != null ? ctx.value().attribute().tablename.getText() : null, ctx.value().attribute().attr.getText());
-        }else if (ctx.value().NULL() != null){
-            rhs = new NullLiteral();
-        }else if (ctx.value().DOUBLE() != null){
-            rhs = new DoubleLiteral(Double.parseDouble(ctx.value().DOUBLE().getText()));
-        }else {
-            throw new RuntimeException("Invalid value in attribute comparison");
-        }
+        Value rhs = getValueFromContext(ctx.value());
         return new AttributeComparisonNode(lhs, op, rhs);
     }
     @Override public ASTNode visitAssignList(liteQLParser.AssignListContext ctx) { 
@@ -153,20 +133,7 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
     @Override public ASTNode visitAssignmentStmt(liteQLParser.AssignmentStmtContext ctx) { 
         //attribute '=' value ';';
         AttributeReference attribute = new AttributeReference(ctx.attribute().tablename != null ? ctx.attribute().tablename.getText() : null, ctx.attribute().attr.getText());
-        Value value;
-        if(ctx.value().INTEGER() !=null){
-            value = new IntLiteral(Integer.parseInt(ctx.value().INTEGER().getText()));
-        } else if(ctx.value().STRING() != null){
-            value = new StringLiteral(ctx.value().STRING().getText());
-        } else if(ctx.value().attribute() != null){
-            value = new AttributeReference(ctx.value().attribute().tablename != null ? ctx.value().attribute().tablename.getText() : null, ctx.value().attribute().attr.getText());
-        }else if (ctx.value().NULL() != null){
-            value = new NullLiteral();
-        }else if (ctx.value().DOUBLE() != null){
-            value = new DoubleLiteral(Double.parseDouble(ctx.value().DOUBLE().getText()));
-        }else {
-            throw new RuntimeException("Invalid value in assignment statement");
-        }
+        Value value = getValueFromContext(ctx.value());
         return new AssignmentStatementNode(attribute, value);
     }
     
@@ -179,7 +146,7 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
             } else if(constraintCtx instanceof liteQLParser.PkContext){
                 constraints.add("PRIMARYKEY");
             } else if(constraintCtx instanceof liteQLParser.FkContext){
-                fkConstraints.add("references " +((liteQLParser.FkContext)constraintCtx).tablename.getText());
+                fkConstraints.add("references " + ((liteQLParser.FkContext)constraintCtx).tablename.getText());
             } else {
                 throw new RuntimeException("Invalid constraint in create attribute statement");
             }
@@ -206,14 +173,20 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
         else if (comparison instanceof liteQLParser.NotEqualContext) return "!=";
         else throw new RuntimeException("Invalid comparison operator in attribute comparison");
     }
-    public List<AttributeReference> getAttributeReferences(String attributeList){
+    public List<AttributeReference> getAttributeReferences(liteQLParser.SelectListContext ctx, String tablename){
         List<AttributeReference> attributes = new ArrayList<>();
-        for(String attr: attributeList.split(",")){
-            if(attr.trim().isEmpty()){
-                throw new RuntimeException("Attribute list in order clause cannot be empty");
-            }
-            String[] parts = attr.trim().split("\\.");
-            attributes.add(new AttributeReference(parts.length > 1 ? parts[0] : null, parts[parts.length - 1]));
+        if(ctx instanceof liteQLParser.AllContext){
+            return attributes; //should be empty :)
+        }
+        for(liteQLParser.AttributeContext attr : ((liteQLParser.ListContext)ctx).attributeList().attribute()){
+            attributes.add(new AttributeReference(tablename,attr.attr.getText()));
+        }
+        return attributes;
+    }
+    public List<AttributeReference> getAttributeReferences(liteQLParser.AttributeListContext ctx){
+        List<AttributeReference> attributes = new ArrayList<>();
+        for(liteQLParser.AttributeContext attr : (ctx.attribute())){
+            attributes.add(new AttributeReference(attr.tablename ==null ? null: attr.tablename.getText(),attr.attr.getText()));
         }
         return attributes;
     }
@@ -227,5 +200,24 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
         } else {
             throw new RuntimeException("Invalid type in create table statement");
         }
+    }
+
+    //this is used in both the assign list and in attribute comparisons
+    public Value getValueFromContext(liteQLParser.ValueContext ctx){
+        Value value;
+        if(ctx.INTEGER() !=null){
+            value = new IntLiteral(Integer.parseInt(ctx.INTEGER().getText()));
+        } else if(ctx.STRING() != null){
+            value = new StringLiteral(ctx.STRING().getText());
+        } else if(ctx.attribute() != null){
+            value = new AttributeReference(ctx.attribute().tablename != null ? ctx.attribute().tablename.getText() : null, ctx.attribute().attr.getText());
+        }else if (ctx.NULL() != null){
+            value = new NullLiteral();
+        }else if (ctx.DOUBLE() != null){
+            value = new DoubleLiteral(Double.parseDouble(ctx.DOUBLE().getText()));
+        }else {
+            throw new RuntimeException("Invalid value in assignment statement");
+        }
+        return value;
     }
 }

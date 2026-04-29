@@ -30,7 +30,8 @@ orderClause: SORT BY attributeList order='desc'
            | SORT BY attributeList order='asc'        
            | SORT BY attributeList              
            ;
-joinClause: WITH tableSource selectList USING attribute; //simplified join clause to only allow joining on one attribute (means that both tables involved in join will need to have said attribute)
+//join clause requires a table to join, what you want to select from said table, and what attribute you will be using from tables in the scope to join on
+joinClause: WITH joinTable=tableSource selectList USING othertable=tableSource'.'attribute; 
 whereClause: WITH conjoinedAttrComparison;
 groupClause: GROUP BY attributeList;
 havingClause: HAVING conjoinedAttrComparison;
@@ -53,8 +54,9 @@ constraint: NOT NULL #notnull
 
 //SELECTING ATTRIBUTES
 //a select list is a list of select items
-selectList: attributeList
-        | ALL;
+selectList: attributeList #list
+        | ALL #All
+        ;
 
 //LIST OF ATTRIBUTES (used in group by and order by clauses)              
 attributeList: attribute (',' attribute)*;

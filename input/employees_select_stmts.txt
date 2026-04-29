@@ -5,7 +5,7 @@ employees all;
 employees first_name,last_name,salary sorted by salary desc;
 
 // join and where clauses
-employees first_name, last_name with employee_projects emp_role using employee_id with project_id is 1;
+employees first_name, last_name with employee_projects emp_role using employees.employee_id with project_id is 1;
 
 // where clause again
 projects project_name with budget at most 45000;

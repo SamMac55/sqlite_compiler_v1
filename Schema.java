@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 public class Schema {
     List<Table> tables = new ArrayList<>();
     public static Schema instance;
@@ -54,6 +55,13 @@ public class Schema {
             }
             return false;
         }
+        public String getTableName(){return table_name;}
+        @Override public boolean equals(Object obj){
+            if(this == obj) return true;
+            if(this.table_name.equals(((Table) obj).getTableName())){return true;}
+            return false;
+        }
+        @Override public int hashCode(){return Objects.hash(table_name);}
     }
     public static class Attribute{
         String attr_name;

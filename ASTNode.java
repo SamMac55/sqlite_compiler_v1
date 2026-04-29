@@ -1,14 +1,20 @@
 import java.util.List;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 public abstract class ASTNode {
-    public abstract boolean validate(Schema schema, List<Schema.Table> tablesInScope); // may make this method take a table name as an argument
+    //validate is the method that allows each node to see if it is correct semantically or not
+    //needs both the schema and the tables that are in the current scope.
+    public abstract boolean validate(Schema schema, List<Schema.Table> tablesInScope);
+    //emitSQL is a basic method that returns the SQL string representation of the node
     public abstract String emitSQL();
+    //resolve attribute is a helper method used in some nodes to find the attribute in a table + check for ambiguity
     public static Schema.Attribute resolveAttribute(List<Schema.Table> scope, String name) {
         Schema.Attribute found = null;
-
+        //look through each table in the scope
         for (Schema.Table t : scope) {
             if (t.hasAttribute(name)) {
-                if (found != null) {
+                if (found != null) { //if we've already found it that means it is ambiguous (needs a tablename qualified)
                     throw new RuntimeException("Ambiguous attribute: " + name);
                 }
                 found = t.getAttribute(name);
@@ -17,7 +23,10 @@ public abstract class ASTNode {
 
         return found;
     }
+    //overloaded version that takes a table name to check if the attribute exists in a specific table
+    //if no table name is provided it simply calls the previous version
     public static Schema.Attribute resolveAttribute(List<Schema.Table> scope, String tableName, String attrName) {
+        //first get the table from the scope (we need to ensure that the table exists)
         if(tableName!=null){
             Schema.Table t = null;
             for(Schema.Table table: scope){
@@ -26,15 +35,17 @@ public abstract class ASTNode {
                     break;
                 }
             }
-            if (t != null) {
-                if (!t.hasAttribute(attrName)) {
-                    throw new RuntimeException("Attribute not found in table: " + tableName + "." + attrName);
-                }
+            //if we cant find the attribute in the table specified throw an error
+            if (t != null && !t.hasAttribute(attrName)) {
+                throw new RuntimeException("Attribute not found in table: " + tableName + "." + attrName);
+            //if not we are all good
+            }else if(t!=null){
                 return t.getAttribute(attrName);
-            } else {
+            //if the table variable is null then the table doesn't even exist in the scope
+            }else {
                 throw new RuntimeException("Table not found in scope: " + tableName);
             }
-        }else{
+        }else{ //call overloaded version
             return resolveAttribute(scope, attrName);
         }
     }
@@ -54,18 +65,27 @@ class AttributeComparisonNode extends ASTNode {
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
         Schema.Attribute validAttr = ASTNode.resolveAttribute(tablesInScope, lhs.tableName, lhs.value);
         if(validAttr != null ){
+            //if its a null value as long as we aren't trying to do > < >= <= its valid
             if(this.rhs instanceof NullLiteral && !validAttr.hasConstraint("NOTNULL") && (op.equals("=") || op.equals("!="))){
                 return true;
             }
+            //check the right hand side of the expression, if its an attribute we need to make sure that it is a valid one
+            //and that the type is valid as well
             if (rhs instanceof AttributeReference ref) {
                 Schema.Attribute rhsAttr = ASTNode.resolveAttribute(tablesInScope, ref.tableName, ref.value);
 
                 if (rhsAttr == null) throw new RuntimeException("Invalid attribute in rhs of comparison: " + ref.value);
+                //make sure right hand side attribute is valid type for left hand side
+                if((validAttr.type.equals("REAL") || validAttr.type.equals("INTEGER")) 
+                    && (rhsAttr.type.equals("REAL") || rhsAttr.type.equals("INTEGER")) ) 
+                    return true;
 
-                return validAttr.type.equals(rhsAttr.type);
+                if(!validAttr.type.equals(rhsAttr.type)) throw new RuntimeException("Attributes in comparison must be of the same type.");
+                else return true;
             }
             String type = validAttr.type;
             String rhsType = this.rhs.getValueType();
+            //numbers can be compared to numbers regardless of if they are ints or doubles (in sqlite)
             if ((type.equals("REAL") || type.equals("INTEGER")) &&
                 (rhsType.equals("REAL") || rhsType.equals("INTEGER"))) {
                 return true;
@@ -129,12 +149,13 @@ class ConjoinedComparisonNode extends ASTNode{
 class SelectNode extends ASTNode{
     int limit = -1; // -1 means no limit
     String mainTableName;
-    List<AttributeReference> selectedAttributes = new ArrayList<>(); // empty list means select *
-    JoinNode join; // null if no join
+    List<AttributeReference> selectedAttributes = new ArrayList<>(); //now making this hold every attribute
+    List<JoinNode> join; // empty if no joins
     ConjoinedComparisonNode whereClause; // null if no where clause
     GroupNode groupBy; // null if no group by clause
     OrderNode orderBy; // null if no order by clause
-    public SelectNode(String mainTableName, List<AttributeReference> selectedAttributes, int limit, JoinNode join, ConjoinedComparisonNode whereClause, GroupNode groupBy, OrderNode orderBy) {
+    Map<String,Integer> attributesPerTable = new HashMap<>();
+    public SelectNode(String mainTableName, List<AttributeReference> selectedAttributes, int limit, List<JoinNode> join, ConjoinedComparisonNode whereClause, GroupNode groupBy, OrderNode orderBy) {
         this.mainTableName = mainTableName;
         this.selectedAttributes = selectedAttributes;
         this.limit = limit;
@@ -151,87 +172,77 @@ class SelectNode extends ASTNode{
         if (main == null) throw new RuntimeException("Main table not found: " + mainTableName);
         scope.add(main);
 
-        if (join != null) {
-            Schema.Table joined = schema.getTable(join.table);
-            if (joined == null) throw new RuntimeException("Joined table not found: " + join.table);
-            scope.add(joined);
-            if(!join.validate(schema,scope)) throw new RuntimeException("Invalid join clause");
+        if (!join.isEmpty()) {
+            for(JoinNode j : join){
+                Schema.Table joined = schema.getTable(j.table);
+                if (joined == null) throw new RuntimeException("Joined table not found: " + j.table);
+                scope.add(joined);
+                if(!j.validate(schema,scope)) throw new RuntimeException("Invalid join clause for table: " + j.table);
+            }
         }
-
         if (whereClause != null) {
             if (!whereClause.validate(schema, scope)) throw new RuntimeException("Invalid where clause in select statement");
         }
-
         if(orderBy != null){
             if(!orderBy.validate(schema, scope)) throw new RuntimeException("Invalid order by clause in select statement");
         }
 
         for(AttributeReference attr: selectedAttributes){
-            if (ASTNode.resolveAttribute(scope, mainTableName, attr.getName()) == null) {
-                throw new RuntimeException("Selected attribute not found in main table: " + attr);
+            if (ASTNode.resolveAttribute(scope, attr.getTableName(), attr.getName()) == null) {
+                throw new RuntimeException("Selected attribute not found in table: " + attr.getTableName());
+            }else{
+                //we need to count how many attributes are there for each table bc if there are zero its a select * 
+                int count = attributesPerTable.getOrDefault(attr.getTableName(), 0);
+                attributesPerTable.put(attr.getTableName(), count + 1);
             }
         }
-        ArrayList<AttributeReference> allSelected = new ArrayList<>(selectedAttributes);
-        allSelected.addAll(selectedAttributes);
         if(groupBy != null){
-            if(!groupBy.validate(schema, scope)) throw new RuntimeException("Invalid group by clause in select statement");
-            allSelected.addAll(join == null || join.selectedAttributes == null ? new ArrayList<>() : join.selectedAttributes);
-            for(AttributeReference attr: groupBy.attributes){
+            if(!groupBy.validate(schema, tablesInScope)) throw new RuntimeException("Invalid group by clause in select statement");
+            for(AttributeReference selected : selectedAttributes){
                 boolean found = false;
-                for(AttributeReference selected : allSelected){
-                    if(selected.getName().equals(attr.getName())){
-                        found = true;
+                for(AttributeReference grouped : groupBy.attributes){
+                    if(grouped.getName().equals(selected.getName())){
+                        found=true;
                         break;
                     }
                 }
-                if(!found){
-                    throw new RuntimeException("Non aggregate attribute in group by clause: " + attr);
-                }
+                if(!found){throw new RuntimeException("Non aggregated column in groupby");}
             }
         }
         return true;
     }
     @Override
     public String emitSQL() {
+        //make the final attribte list
         List<String> finalAttrs = new ArrayList<>();
-
-        boolean mainAll = selectedAttributes.isEmpty();
-        boolean joinAll = (join != null && join.getSelectedAttributes().isEmpty());
-
-        // Case 1: both are *
-        if (mainAll && (join == null || joinAll)) {
-            return "SELECT * FROM " + mainTableName +
-                (join != null ? " " + join.emitSQL() : "") +
-                (whereClause != null ? " WHERE " + whereClause.emitSQL() : "") +
-                (groupBy != null ? " " + groupBy.emitSQL() : "") +
-                (orderBy != null ? " " + orderBy.emitSQL() : "") +
-                (limit != -1 ? " LIMIT " + limit : "") + ";";
-        }
-
-        // Main attributes
-        if (!mainAll) {
-            for (AttributeReference attr : selectedAttributes) {
-                finalAttrs.add(mainTableName + "." + attr.getName());
-            }
-        } else if (join != null && !joinAll) {
-            finalAttrs.add(mainTableName + ".*");
-        }
-
-        // Join attributes
-        if (join != null) {
-            if (!joinAll) {
-                for (AttributeReference attr : join.getSelectedAttributes()) {
-                    finalAttrs.add(join.table + "." + attr.getName());
+        if(attributesPerTable.getOrDefault(mainTableName,0)==0){
+            finalAttrs.add(mainTableName+".*");
+        }else{
+            for(AttributeReference attr: selectedAttributes){
+                if(attr.getTableName().equals(mainTableName)){
+                    finalAttrs.add(mainTableName + "." + attr.getName());
                 }
-            } else if (!mainAll) {
-                finalAttrs.add(join.table + ".*");
+            }
+        }
+        for(JoinNode j : join){
+            if(attributesPerTable.getOrDefault(j.table,0)==0){
+                finalAttrs.add(j.table+".*");
+            }else{
+                for(AttributeReference attr: selectedAttributes){
+                if(attr.getTableName().equals(j.table)){
+                    finalAttrs.add(j.table + "." + attr.getName());
+                }
+            }
             }
         }
 
         String selectClause = "SELECT " + String.join(", ", finalAttrs);
-
+        String joinClause = "";
+        for(JoinNode j : join){
+            joinClause += j.emitSQL();
+        }
         return selectClause + " FROM " + mainTableName +
-            (join != null ? " " + join.emitSQL() : "") +
+            (!join.isEmpty() ? " " + joinClause : "") +
             (whereClause != null ? " WHERE " + whereClause.emitSQL() : "") +
             (groupBy != null ? " " + groupBy.emitSQL() : "") +
             (orderBy != null ? " " + orderBy.emitSQL() : "") +
@@ -242,46 +253,36 @@ class SelectNode extends ASTNode{
 class JoinNode extends ASTNode{
     String table;
     String onCondition;
-    List<AttributeReference> selectedAttributes; // empty list means select *
-    String mainTable;
-
-    public JoinNode(String mainTable, String table, String onCondition, List<AttributeReference> selectedAttributes) {
-        this.mainTable = mainTable;
+    String onConditionTable;
+    public JoinNode(String table, String onCondition, String onConditionTable) {
         this.table = table;
         this.onCondition = onCondition;
-        this.selectedAttributes = selectedAttributes;
-    }
-    public JoinNode(String mainTable, String table, String onCondition) {
-        this.mainTable = mainTable;
-        this.table = table;
-        this.onCondition = onCondition;
-        this.selectedAttributes = new ArrayList<>();
+        this.onConditionTable = onConditionTable;
     }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
-        if(schema.getTable(table) == null){
+        Schema.Table joinedTable = schema.getTable(table);
+        Schema.Table conditionTable = schema.getTable(onConditionTable);
+        if(joinedTable == null){
             throw new RuntimeException("Joined table not found in schema: " + table);
         }
-        for(Schema.Table t: tablesInScope){
-            if(!t.hasAttribute(onCondition)){
-                throw new RuntimeException("Invalid attribute in join condition, attribute must be in both main and joined tables: " + onCondition);
-            }
+        if(conditionTable==null){
+            throw new RuntimeException("Table with condition to join not found in schema: " + onConditionTable);
         }
-        for(AttributeReference attr: selectedAttributes){
-            if(!schema.getTable(table).hasAttribute(attr.getName())){
-                throw new RuntimeException("Selected attribute not found in joined table: " + attr.getName());
+        if(tablesInScope.contains(conditionTable) && tablesInScope.contains(joinedTable)){
+            if(conditionTable.hasAttribute(onCondition) && joinedTable.hasAttribute(onCondition)){
+                return true;
             }
+            throw new RuntimeException("Joined table and Condition Table do not both contain attribute: " + onCondition);
+        }else{
+            throw new RuntimeException("Schema does not contain both Condition Table: " + conditionTable + " and Joined Table: " + joinedTable );
         }
-        return true;
     }
     @Override
     public String emitSQL() {
         return "JOIN " + table +
             " ON " + table + "." + onCondition +
-            " = " + mainTable + "." + onCondition;
-    }
-    public List<AttributeReference> getSelectedAttributes() {
-        return selectedAttributes;
+            " = " + onConditionTable + "." + onCondition;
     }
 }
 
@@ -294,13 +295,14 @@ class OrderNode extends ASTNode{
     }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        //validate by ensuring that the table is in the scope
         for(AttributeReference attr: attributes){
             boolean found = false;
             if(resolveAttribute(tablesInScope, attr.getTableName(), attr.getName()) != null){
                 found = true;
             }
             if(!found){
-                throw new RuntimeException("Attribute not found in any table: " + attr.getName());
+                throw new RuntimeException("ORDER BY: Attribute not found in any table: " + attr.getName());
             }
         }
         return true;
@@ -338,7 +340,7 @@ class GroupNode extends ASTNode{
                 found = true;
             }
             if(!found){
-                throw new RuntimeException("Attribute not found in any table: " + attr.toString());
+                throw new RuntimeException("GROUP BY: Attribute not found in any table: " + attr.toString());
             }
         }
         return true;
