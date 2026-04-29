@@ -20,7 +20,7 @@ deleteTable: REMOVE TABLE tablename=ID ';';
 deleteRow: REMOVE tableSource whereClause ';';
 insert: ADD tableSource '('assignList ')' (',''('assignList')')*  ';';
 updateRow: CHANGE tableSource SET assignList whereClause ';';
-select: limitClause? tableSource selectList joinClause? orderClause? whereClause? (groupClause havingClause?)? ';';
+select: limitClause? tableSource selectList joinClause* orderClause? whereClause? (groupClause havingClause?)? ';';
 createTable: NEW TABLE tablename=ID '{' createAttrList '}' ';';
 //declareBlock: DECLARE tableSource declaredTablesList ';';
 

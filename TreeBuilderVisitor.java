@@ -54,8 +54,10 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
         }
         List<JoinNode> joins = new ArrayList<>();
         if(ctx.joinClause()!=null){
-            joins.add(new JoinNode(ctx.joinClause().joinTable.getText(), ctx.joinClause().attribute().getText(), ctx.joinClause().othertable.getText()));   
-            selectedAttributes.addAll(getAttributeReferences(ctx.joinClause().selectList(),ctx.joinClause().joinTable.getText()));
+            for(liteQLParser.JoinClauseContext currJoin : ctx.joinClause()){
+                joins.add(new JoinNode(currJoin.joinTable.getText(), currJoin.attribute().getText(), currJoin.othertable.getText()));   
+                selectedAttributes.addAll(getAttributeReferences(currJoin.selectList(),currJoin.joinTable.getText()));
+            }
         }
         ConjoinedComparisonNode whereCaluse = null;
         if(ctx.whereClause()!=null){

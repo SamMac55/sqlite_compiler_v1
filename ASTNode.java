@@ -239,7 +239,7 @@ class SelectNode extends ASTNode{
         String selectClause = "SELECT " + String.join(", ", finalAttrs);
         String joinClause = "";
         for(JoinNode j : join){
-            joinClause += j.emitSQL();
+            joinClause += j.emitSQL() + " ";
         }
         return selectClause + " FROM " + mainTableName +
             (!join.isEmpty() ? " " + joinClause : "") +
