@@ -1,0 +1,19 @@
+//limit with more than 1
+find 3 songs all sorted by song_title,duration;
+
+//group with having
+playlist_songs playlist_id, count song_id group by playlist_id having playlist_id is 1;
+
+//better combination of everything
+find 2 songs total duration with albums album_name using songs.album_id sorted by duration desc group by album_name;
+
+playlist_songs with playlists playlist_name using playlist_songs.playlist_id
+with songs song_title,duration using playlist_songs.song_id 
+with playlists.playlist_id is not 2 and songs.song_id greater than 2 or duration at least 190;
+
+//this one is more just to prove that this works database isn't large enough for meaningful full combination query
+find 3 songs total duration
+with albums album_name using songs.album_id 
+sorted by album_name 
+with duration at most 300
+group by album_name having album_name is not 'First Light';

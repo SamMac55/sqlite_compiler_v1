@@ -20,7 +20,7 @@ deleteTable: REMOVE TABLE tablename=ID ';';
 deleteRow: REMOVE tableSource whereClause ';';
 insert: ADD tableSource '('assignList ')' (',''('assignList')')*  ';';
 updateRow: CHANGE tableSource SET assignList whereClause ';';
-select: limitClause? tableSource selectList joinClause* orderClause? whereClause? (groupClause havingClause?)? ';';
+select: limitClause? tableSource selectList? joinClause* orderClause? whereClause? (groupClause havingClause?)? ';';
 createTable: NEW TABLE tablename=ID '{' createAttrList '}' ';';
 //declareBlock: DECLARE tableSource declaredTablesList ';';
 
@@ -31,7 +31,7 @@ orderClause: SORT BY attributeList order='desc'
            | SORT BY attributeList              
            ;
 //join clause requires a table to join, what you want to select from said table, and what attribute you will be using from tables in the scope to join on
-joinClause: WITH joinTable=tableSource selectList USING othertable=tableSource'.'attribute; 
+joinClause: WITH joinTable=tableSource selectList? USING othertable=tableSource'.'attribute; 
 whereClause: WITH conjoinedAttrComparison;
 groupClause: GROUP BY attributeList;
 havingClause: HAVING conjoinedAttrComparison;

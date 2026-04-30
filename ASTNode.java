@@ -193,13 +193,12 @@ class SelectNode extends ASTNode{
         }
 
         for(AttributeReference attr: selectedAttributes){
+            if(attr instanceof AllReference) continue;
             Schema.Attribute curr = ASTNode.resolveAttribute(scope, attr.getTableName(), attr.getName());
             if (curr == null) {
                 throw new RuntimeException("Selected attribute not found in table: " + attr.getTableName());
             }else{
                 //we need to count how many attributes are there for each table bc if there are zero its a select * 
-                int count = attributesPerTable.getOrDefault(attr.getTableName(), 0);
-                attributesPerTable.put(attr.getTableName(), count + 1);
                 if(attr.function != null && !(curr.type.equals("REAL") || curr.type.equals("INTEGER")) &&  (attr.function.equals("total") || attr.function.equals("avg"))){
                     throw new RuntimeException("Cannot do the average or sum of a non-number attribute");
                 }
@@ -208,6 +207,7 @@ class SelectNode extends ASTNode{
         if(groupBy != null){
             if(!groupBy.validate(schema, scope)) throw new RuntimeException("Invalid group by clause in select statement");
             for(AttributeReference selected : selectedAttributes){
+                if(selected instanceof AllReference) continue;
                 boolean found = false;
                 for(AttributeReference grouped : groupBy.attributes){
                     if(grouped.getName().equals(selected.getName())){
@@ -224,10 +224,10 @@ class SelectNode extends ASTNode{
     public String emitSQL() {
         //make the final attribte list
         List<String> finalAttrs = new ArrayList<>();
-        if(attributesPerTable.getOrDefault(mainTableName,0)==0){
-            finalAttrs.add(mainTableName+".*");
-        }else{
-            for(AttributeReference attr: selectedAttributes){
+        for(AttributeReference attr: selectedAttributes){
+            if(attr instanceof AllReference){
+                finalAttrs.add(mainTableName+".*");
+            }else{
                 if(attr.getTableName().equals(mainTableName)){
                     String func;
                     if(attr.function !=null){
@@ -240,15 +240,15 @@ class SelectNode extends ASTNode{
             }
         }
         for(JoinNode j : join){
-            if(attributesPerTable.getOrDefault(j.table,0)==0){
-                finalAttrs.add(j.table+".*");
-            }else{
-                for(AttributeReference attr: selectedAttributes){
+            for(AttributeReference attr: selectedAttributes){
+                if(attr instanceof AllReference){
+                    finalAttrs.add(j.table+".*");
+                }else{
                     if(attr.getTableName().equals(j.table)){
                         String func;
                         if(attr.function !=null){
                             func = getFunction(attr.function);
-                            finalAttrs.add("(" + func + j.table + "." + attr.getName() + ")");
+                            finalAttrs.add( func + "(" + j.table + "." + attr.getName() + ")");
                         }else{
                             finalAttrs.add(j.table + "." + attr.getName());
                         }
@@ -269,7 +269,7 @@ class SelectNode extends ASTNode{
             (orderBy != null ? " " + orderBy.emitSQL() : "") +
             (limit != -1 ? " LIMIT " + limit : "") + ";";
     }
-    public String getFunction(String func){
+    public static String getFunction(String func){
         switch (func){
             case "min":
                 return "MIN";
@@ -792,6 +792,17 @@ class AttributeReference extends Value{
         return tableName;
     }
     public String toString() {
+        if(function ==null){
+            return SelectNode.getFunction(function) + "(" + (tableName != null ? tableName + "." : "") + value + ")";
+        }
         return (tableName != null ? tableName + "." : "") + value;
     }
+}
+
+class AllReference extends AttributeReference{
+
+    public AllReference(String tableName, String value, String function) {
+        super(tableName, "ALL", function);
+    }
+    
 }

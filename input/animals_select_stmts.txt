@@ -1,0 +1,15 @@
+//order ascending with/without the specifier
+animals animal_name,age sorted by animal_name asc;
+animals animal_name,age sorted by animal_name;
+
+//conjoined where
+animals all with type_id is 1 and age less than 10;
+animals all with type_id at least 2 or animal_name is 'Lion';
+
+//multiple joins
+animals animal_name 
+with animal_caretakers assignment_id using animals.animal_id
+with caretakers first_name,last_name using animal_caretakers.caretaker_id;
+
+//group by with aggregation
+animals habitat_id, count animal_id group by habitat_id;

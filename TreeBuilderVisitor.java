@@ -181,16 +181,19 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
     }
     public List<AttributeReference> getAttributeReferences(liteQLParser.SelectListContext ctx, String tablename){
         List<AttributeReference> attributes = new ArrayList<>();
+        if(ctx == null) return attributes;
         if(ctx instanceof liteQLParser.AllContext){
-            return attributes; //should be empty :)
-        }
-        for(liteQLParser.AttributeContext attr : ((liteQLParser.ListContext)ctx).attributeList().attribute()){
-            attributes.add(new AttributeReference(tablename,attr.attr.getText(),attr.function()==null ? null : attr.function().getText()));
+            attributes.add(new AllReference(tablename,"all",null));
+        }else{
+            for(liteQLParser.AttributeContext attr : ((liteQLParser.ListContext)ctx).attributeList().attribute()){
+                attributes.add(new AttributeReference(tablename,attr.attr.getText(),attr.function()==null ? null : attr.function().getText()));
+            }
         }
         return attributes;
     }
     public List<AttributeReference> getAttributeReferences(liteQLParser.AttributeListContext ctx){
         List<AttributeReference> attributes = new ArrayList<>();
+        if(ctx == null) return attributes;
         for(liteQLParser.AttributeContext attr : (ctx.attribute())){
             attributes.add(new AttributeReference(attr.tablename ==null ? null: attr.tablename.getText(),attr.attr.getText(),attr.function()==null ? null : attr.function().getText()));
         }
