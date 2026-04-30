@@ -1,7 +1,8 @@
 import java.util.List;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
 public abstract class ASTNode {
     //validate is the method that allows each node to see if it is correct semantically or not
     //needs both the schema and the tables that are in the current scope.
@@ -149,140 +150,33 @@ class ConjoinedComparisonNode extends ASTNode{
         }
         return left.emitSQL() + " " + conjunction + " " + right.emitSQL();
     }
-}
+    public List<AttributeReference> getAttrRefsInComp() {
+        Set<AttributeReference> refs = new HashSet<>();
 
-class SelectNode extends ASTNode{
-    int limit = -1; // -1 means no limit
-    String mainTableName;
-    List<AttributeReference> selectedAttributes = new ArrayList<>(); //now making this hold every attribute
-    List<JoinNode> join; // empty if no joins
-    ConjoinedComparisonNode whereClause; // null if no where clause
-    GroupNode groupBy; // null if no group by clause
-    OrderNode orderBy; // null if no order by clause
-    Map<String,Integer> attributesPerTable = new HashMap<>();
-    public SelectNode(String mainTableName, List<AttributeReference> selectedAttributes, int limit, List<JoinNode> join, ConjoinedComparisonNode whereClause, GroupNode groupBy, OrderNode orderBy) {
-        this.mainTableName = mainTableName;
-        this.selectedAttributes = selectedAttributes;
-        this.limit = limit;
-        this.join = join;
-        this.whereClause = whereClause;
-        this.groupBy = groupBy;
-        this.orderBy = orderBy;
+        collectRecursive(this, refs);
+
+        return new ArrayList<>(refs);
     }
-    @Override
-    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
-        List<Schema.Table> scope = new ArrayList<>();
 
-        Schema.Table main = schema.getTable(mainTableName);
-        if (main == null) throw new RuntimeException("Main table not found: " + mainTableName);
-        scope.add(main);
+    private void collectRecursive(ConjoinedComparisonNode node, Set<AttributeReference> refs) {
+        if (node == null) return;
 
-        if (!join.isEmpty()) {
-            for(JoinNode j : join){
-                Schema.Table joined = schema.getTable(j.table);
-                if (joined == null) throw new RuntimeException("Joined table not found: " + j.table);
-                scope.add(joined);
-                if(!j.validate(schema,scope)) throw new RuntimeException("Invalid join clause for table: " + j.table);
-            }
-        }
-        if (whereClause != null) {
-            if (!whereClause.validate(schema, scope)) throw new RuntimeException("Invalid where clause in select statement");
-        }
-        if(orderBy != null){
-            if(!orderBy.validate(schema, scope)) throw new RuntimeException("Invalid order by clause in select statement");
-        }
+        collectFromComparison(node.left, refs);
 
-        for(AttributeReference attr: selectedAttributes){
-            if(attr instanceof AllReference) continue;
-            Schema.Attribute curr = ASTNode.resolveAttribute(scope, attr.getTableName(), attr.getName());
-            if (curr == null) {
-                throw new RuntimeException("Selected attribute not found in table: " + attr.getTableName());
-            }else{
-                //we need to count how many attributes are there for each table bc if there are zero its a select * 
-                if(attr.function != null && !(curr.type.equals("REAL") || curr.type.equals("INTEGER")) &&  (attr.function.equals("total") || attr.function.equals("avg"))){
-                    throw new RuntimeException("Cannot do the average or sum of a non-number attribute");
-                }
-            }
+        if (node.right != null) {
+            collectRecursive(node.right, refs);
         }
-        if(groupBy != null){
-            if(!groupBy.validate(schema, scope)) throw new RuntimeException("Invalid group by clause in select statement");
-            for(AttributeReference selected : selectedAttributes){
-                if(selected instanceof AllReference) continue;
-                boolean found = false;
-                for(AttributeReference grouped : groupBy.attributes){
-                    if(grouped.getName().equals(selected.getName())){
-                        found=true;
-                        break;
-                    }
-                }
-                if(!found && selected.function == null){throw new RuntimeException("Non aggregated column in groupby");}
-            }
-        }
-        return true;
     }
-    @Override
-    public String emitSQL() {
-        //make the final attribte list
-        List<String> finalAttrs = new ArrayList<>();
-        for(AttributeReference attr: selectedAttributes){
-            if(attr instanceof AllReference){
-                finalAttrs.add(mainTableName+".*");
-            }else{
-                if(attr.getTableName().equals(mainTableName)){
-                    String func;
-                    if(attr.function !=null){
-                        func = getFunction(attr.function);
-                        finalAttrs.add( func + "(" +  mainTableName + "." + attr.getName() + ")");
-                    }else{
-                        finalAttrs.add(mainTableName + "." + attr.getName());
-                    }
-                }
-            }
-        }
-        for(JoinNode j : join){
-            for(AttributeReference attr: selectedAttributes){
-                if(attr instanceof AllReference){
-                    finalAttrs.add(j.table+".*");
-                }else{
-                    if(attr.getTableName().equals(j.table)){
-                        String func;
-                        if(attr.function !=null){
-                            func = getFunction(attr.function);
-                            finalAttrs.add( func + "(" + j.table + "." + attr.getName() + ")");
-                        }else{
-                            finalAttrs.add(j.table + "." + attr.getName());
-                        }
-                    }
-                }
-            }
-        }
 
-        String selectClause = "SELECT " + String.join(", ", finalAttrs);
-        String joinClause = "";
-        for(JoinNode j : join){
-            joinClause += j.emitSQL() + " ";
-        }
-        return selectClause + " FROM " + mainTableName +
-            (!join.isEmpty() ? " " + joinClause : "") +
-            (whereClause != null ? " WHERE " + whereClause.emitSQL() : "") +
-            (groupBy != null ? " " + groupBy.emitSQL() : "") +
-            (orderBy != null ? " " + orderBy.emitSQL() : "") +
-            (limit != -1 ? " LIMIT " + limit : "") + ";";
-    }
-    public static String getFunction(String func){
-        switch (func){
-            case "min":
-                return "MIN";
-            case "max":
-                return "MAX";
-            case "total":
-                return "SUM";
-            case "average":
-                return "AVG";
-            case "count":
-                return "COUNT";
-            default: 
-                return null;
+    private void collectFromComparison(AttributeComparisonNode comp, Set<AttributeReference> refs) {
+        if (comp == null) return;
+
+        // LHS is always an attribute
+        refs.add(comp.lhs);
+
+        // RHS might be an attribute
+        if (comp.rhs instanceof AttributeReference ref) {
+            refs.add(ref);
         }
     }
 }
@@ -792,11 +686,20 @@ class AttributeReference extends Value{
         return tableName;
     }
     public String toString() {
-        if(function ==null){
-            return SelectNode.getFunction(function) + "(" + (tableName != null ? tableName + "." : "") + value + ")";
+        if(function != null){
+            return SelectNode.getFunction(function) + "(" + 
+                (tableName != null ? tableName + "." : "") + value + ")";
         }
         return (tableName != null ? tableName + "." : "") + value;
     }
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof AttributeReference other)) return false;
+
+        return Objects.equals(this.tableName, other.getTableName()) &&
+            Objects.equals(this.value, other.getName());
+    }
+    @Override public int hashCode(){return Objects.hash(tableName,value);}
 }
 
 class AllReference extends AttributeReference{
