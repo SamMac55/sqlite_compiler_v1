@@ -166,9 +166,9 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
      }
 
 
-    @Override public ASTNode visitFullschema(liteQLParser.FullschemaContext ctx) { /*change to something like sqlEmiter.emit(".fullschema") */ return null;}
+    @Override public ASTNode visitFullschema(liteQLParser.FullschemaContext ctx) { return new CommandNode("fullschema");}
 	
-	@Override public ASTNode visitTables(liteQLParser.TablesContext ctx) { /*change to something like sqlEmiter.emit(".tables") */ return null;} 
+	@Override public ASTNode visitTables(liteQLParser.TablesContext ctx) { return new CommandNode("tables");} 
 
     public String getComparisonSymbol(liteQLParser.ComparisonContext comparison){
         if(comparison instanceof liteQLParser.GreaterThanContext) return ">";

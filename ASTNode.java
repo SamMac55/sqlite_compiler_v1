@@ -723,3 +723,27 @@ class AllReference extends AttributeReference{
     }
     
 }
+
+class CommandNode extends ASTNode{
+    String command;
+    public CommandNode(String command){
+        this.command=command;
+    }
+    @Override
+    public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        // commands have nothing to do with the schema
+        return true;
+    }
+
+    @Override
+    public String emitSQL() {
+        if(command.equals("tables")){
+            return ".tables;";//so technically these cant have semi colons but it is split by semicolon in the python script
+        }else if (command.equals("fullschema")){
+            return ".fullschema;";
+        }else{
+            throw new RuntimeException("Invalid command");
+        }
+    }
+
+}

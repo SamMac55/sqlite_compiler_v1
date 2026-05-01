@@ -1,6 +1,7 @@
 import sqlite3
 import csv
 import sys
+import subprocess
 
 db_file = sys.argv[1]
 
@@ -20,7 +21,16 @@ for stmt in statements:
         continue
 
     try:
-        if stmt.lower().startswith("select"):
+        if stmt.lower() in (".tables", ".fullschema"):
+            result = subprocess.run(
+                ["sqlite3", db_file],
+                input=stmt,
+                capture_output=True,
+                text=True
+            )
+            with open(f"output/output_{counter}.csv", "w", newline="") as f:
+                f.write(result.stdout)
+        elif stmt.lower().startswith("select"):
             cursor.execute(stmt)
             rows = cursor.fetchall()
             headers = [d[0] for d in cursor.description]
