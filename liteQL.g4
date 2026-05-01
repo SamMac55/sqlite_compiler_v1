@@ -36,15 +36,6 @@ whereClause: WITH conjoinedAttrComparison;
 groupClause: GROUP BY attributeList;
 havingClause: HAVING conjoinedAttrComparison;
 
-//new rules for declare block
-// declaredTablesList: declareTable ',' declaredTablesList           #listOfDeclareTable
-//             |   declareTable                                  #singleDeclareTable
-//             ;
-// declareTable: tableSource '{' createAttrList '}' #declareTableDef
-//             ;
-
-
-
 //CONSTRAINTS
 constraintList: constraint (',' constraint)*;
 constraint: NOT NULL #notnull

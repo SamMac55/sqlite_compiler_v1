@@ -1,7 +1,7 @@
 // create table
 new table test_table {
-int id(pk),
-String name
+    int id(pk),
+    String name
 };
 
 // insert
@@ -9,9 +9,6 @@ add employees (employee_id=900,first_name='John',last_name='Doe',email='john@exa
 
 // insert multiple
 add test_table (id=1, name='testing'), (id=2,name='testing2');
-
-// delete row
-remove employees with employee_id is 1;
 
 // see if the new table was added properly
 test_table all;
@@ -22,4 +19,5 @@ remove table test_table;
 // see if our new employee was added
 employees all with employee_id is 900;
 
+//delete row
 remove employees with employee_id is 900;

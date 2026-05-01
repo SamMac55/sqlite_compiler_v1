@@ -1,0 +1,2 @@
+playlist_id,COUNT(playlist_songs.song_id)
+1,3

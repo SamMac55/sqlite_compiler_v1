@@ -1,0 +1,5 @@
+animal_id,animal_name,type_id,habitat_id,age
+1,Lion,1,1,8
+3,Eagle,2,2,5
+4,Shark,3,3,12
+5,Snake,4,4,4

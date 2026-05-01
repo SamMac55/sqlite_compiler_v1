@@ -440,6 +440,20 @@ class AssignmentStatementNode extends ASTNode{
         }
         String type = attr.type;
         String valueType = value.getValueType();
+        if(value instanceof AttributeReference){
+            Schema.Attribute valueAttr = resolveAttribute(tablesInScope,((AttributeReference)value).getTableName(),((AttributeReference)value).getName());
+            if(valueAttr==null){
+                throw new RuntimeException("Attribute not found in schema: " + value.toString());
+            }
+            if((valueAttr.type.equals("REAL") || valueAttr.type.equals("INTEGER")) &&
+            (type.equals("REAL") || type.equals("INTEGER"))){ 
+                return true;
+            }else if(valueAttr.type.equals(type)){
+                return true;
+            }else{
+                throw new RuntimeException("Cannot compare attributes of different types: " + value.toString() + ", " + attr.toString());
+            }
+        }
         if ((type.equals("REAL") || type.equals("INTEGER")) &&
             (valueType.equals("REAL") || valueType.equals("INTEGER"))) {
             return true;
