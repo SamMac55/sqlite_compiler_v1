@@ -1,0 +1,20 @@
+// TC-P1: Duplicate column names
+new table person { int id, int id };
+
+// TC-P2: Invalid data type
+new table person { float age };
+
+// TC-P3: FK referencing non-existent table
+new table orders { int cid (reference customers) };
+
+// TC-P4: FK referencing non-existent attribute in referenced table
+new table orders { int ghost_col (reference employees) };
+
+// TC-P5: FK type mismatch with referenced column
+new table orders { String employee_id (reference employees) };
+
+// TC-P6: Creating a table that already exists
+new table employees {int employee_id (pk)};
+
+// TC-D2: DROP TABLE that does not exist
+remove table ghost;

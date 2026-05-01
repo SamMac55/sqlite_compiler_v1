@@ -12,6 +12,7 @@ public class Driver {
     public static void main(String[] args) throws Exception {
         CreateSchemaVisitor schemaVisitor;
         ArrayList<String> statements = new ArrayList<>();
+        if(args.length == 0){throw new RuntimeException("Must provide a sqlite database file path in command line");}
         String dbFile = args[0];
         try{
             //get the name of the database file

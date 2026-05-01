@@ -1,0 +1,57 @@
+//TC-W1: Type mismatch in comparison (String vs int)
+// remove employees with salary is 'hello';
+java.lang.RuntimeException: Invalid attribute in lhs of comparison: salary
+        at AttributeComparisonNode.validate(ASTNode.java:97)
+        at ConjoinedComparisonNode.validate(ASTNode.java:135)
+        at DeleteRowNode.validate(ASTNode.java:344)
+        at Driver.main(Driver.java:57)
+
+//TC-W2: NULL used with inequality on NOTNULL column
+// remove employees with first_name is not null;
+java.lang.RuntimeException: Invalid attribute in lhs of comparison: first_name
+        at AttributeComparisonNode.validate(ASTNode.java:97)
+        at ConjoinedComparisonNode.validate(ASTNode.java:135)
+        at DeleteRowNode.validate(ASTNode.java:344)
+        at Driver.main(Driver.java:57)
+
+// TC-W3: Attribute in WHERE not found in table
+// remove employees with ghost_col is 5;
+java.lang.RuntimeException: Invalid attribute in lhs of comparison: ghost_col
+        at AttributeComparisonNode.validate(ASTNode.java:97)
+        at ConjoinedComparisonNode.validate(ASTNode.java:135)
+        at DeleteRowNode.validate(ASTNode.java:344)
+        at Driver.main(Driver.java:57)
+
+// TC-U1: UPDATE on non-existent table
+// change ghost set name = 'Alice' with ghost_id is 1;
+java.lang.RuntimeException: Cannot update row for table that does not exist: ghost
+        at UpdateNode.validate(ASTNode.java:367)
+        at Driver.main(Driver.java:57)
+
+// TC-U2: Type mismatch in SET assignment
+// change employees set salary = 'not_a_number' with employee_id is 1;
+java.lang.RuntimeException: Type mismatch in assignment: cannot assign TEXT to REAL
+        at AssignmentStatementNode.validate(ASTNode.java:464)
+        at AssignmentListNode.validate(ASTNode.java:480)
+        at UpdateNode.validate(ASTNode.java:371)
+        at Driver.main(Driver.java:57)
+
+// TC-I1: INSERT into non-existent table
+// add ghost (id = 1);
+java.lang.RuntimeException: Cannot insert into a table that does not exist: ghost
+        at InsertNode.validate(ASTNode.java:397)
+        at Driver.main(Driver.java:57)
+
+// TC-I2: INSERT with wrong type for column
+// add employees (employee_id='hello', first_name='this', last_name='is', email='a', salary='test', department_id=5);
+java.lang.RuntimeException: Type mismatch in assignment: cannot assign TEXT to INTEGER
+        at AssignmentStatementNode.validate(ASTNode.java:464)
+        at AssignmentListNode.validate(ASTNode.java:480)
+        at InsertNode.validate(ASTNode.java:402)
+        at Driver.main(Driver.java:57)
+
+// TC-D1: DELETE row from non-existent table
+// remove ghost with id is 1;
+java.lang.RuntimeException: Cannot delete a row from a table that does not exist: ghost
+        at DeleteRowNode.validate(ASTNode.java:340)
+        at Driver.main(Driver.java:57)

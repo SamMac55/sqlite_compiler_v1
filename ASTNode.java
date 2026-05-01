@@ -505,6 +505,7 @@ class CreateTableNode extends ASTNode{
     }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        Set<String> newAttrNames = new HashSet<>();
         if(schema.hasTable(tableID)){
             throw new RuntimeException("Table already exists in schema: " + tableID);
         }
@@ -512,6 +513,12 @@ class CreateTableNode extends ASTNode{
             if(!attribute.validate(schema, tablesInScope)){
                 throw new RuntimeException("Invalid attribute in create table statement");
             }
+        }
+        for(CreateAttributeNode attr: attributes){
+            newAttrNames.add(attr.name);
+        }
+        if(newAttrNames.size() != attributes.size()){
+            throw new RuntimeException("Duplicate attribute names in create table: " + tableID);
         }
         createTable();
         return true;

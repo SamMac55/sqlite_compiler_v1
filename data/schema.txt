@@ -1,30 +1,26 @@
-CREATE TABLE artists (
-    artist_id INTEGER PRIMARY KEY,
-    artist_name TEXT NOT NULL
+CREATE TABLE animal_types (
+    type_id INTEGER PRIMARY KEY,
+    type_name TEXT NOT NULL
 );
-CREATE TABLE albums (
-    album_id INTEGER PRIMARY KEY,
-    album_name TEXT NOT NULL,
-    artist_id INTEGER NOT NULL REFERENCES artists(artist_id)
+CREATE TABLE habitats (
+    habitat_id INTEGER PRIMARY KEY,
+    habitat_name TEXT NOT NULL
 );
-CREATE TABLE songs (
-    song_id INTEGER PRIMARY KEY,
-    song_title TEXT NOT NULL,
-    duration INTEGER NOT NULL,
-    album_id INTEGER NOT NULL REFERENCES albums(album_id)
+CREATE TABLE animals (
+    animal_id INTEGER PRIMARY KEY,
+    animal_name TEXT NOT NULL,
+    type_id INTEGER NOT NULL REFERENCES animal_types(type_id),
+    habitat_id INTEGER NOT NULL REFERENCES habitats(habitat_id),
+    age INTEGER NOT NULL
 );
-CREATE TABLE users (
-    user_id INTEGER PRIMARY KEY,
-    username TEXT NOT NULL
+CREATE TABLE caretakers (
+    caretaker_id INTEGER PRIMARY KEY,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL
 );
-CREATE TABLE playlists (
-    playlist_id INTEGER PRIMARY KEY,
-    playlist_name TEXT NOT NULL,
-    user_id INTEGER NOT NULL REFERENCES users(user_id)
-);
-CREATE TABLE playlist_songs (
-    playlist_song_id INTEGER PRIMARY KEY,
-    playlist_id INTEGER NOT NULL REFERENCES playlists(playlist_id),
-    song_id INTEGER NOT NULL REFERENCES songs(song_id)
+CREATE TABLE animal_caretakers (
+    assignment_id INTEGER PRIMARY KEY,
+    animal_id INTEGER NOT NULL REFERENCES animals(animal_id),
+    caretaker_id INTEGER NOT NULL REFERENCES caretakers(caretaker_id)
 );
 /* No STAT tables available */

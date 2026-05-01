@@ -20,10 +20,8 @@ class SelectNode extends ASTNode{
     }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
-
         List<Schema.Table> scope = buildScope(schema);
-        List<AttributeReference> aggregated = getAggregatedAttributes();
-
+        List<AttributeReference> aggregated = getAggregatedAttributes(scope);
         validateSelectedAttributes(schema, scope);
         validateWhereClause(schema, scope);
         validateGroupBy(schema, scope, aggregated);
@@ -255,16 +253,28 @@ class SelectNode extends ASTNode{
             }
         }
     }
-    private List<AttributeReference> getAggregatedAttributes() {
+    private List<AttributeReference> getAggregatedAttributes(List<Schema.Table> scope) {
         List<AttributeReference> aggregated = new ArrayList<>();
-
+        List<String> functions = new ArrayList<>();
         for (AttributeReference attr : selectedAttributes) {
             if (attr.function != null) {
                 aggregated.add(attr);
+                functions.add(attr.function);
             }
         }
-
-        return aggregated;
+        if(validateAggregatedAttributes(scope,aggregated, functions)) return aggregated;
+        else throw new RuntimeException("Issue with aggregated function list");
+    }
+    private boolean validateAggregatedAttributes(List<Schema.Table> scope,List<AttributeReference> attrs, List<String> funcs){
+        if(attrs.size()!= funcs.size()){return false;}
+        for(int i = 0; i< attrs.size(); i++){
+            if(funcs.get(i).equals("total") || funcs.get(i).equals("average")){
+                if(resolveAttribute(scope,attrs.get(i).getTableName(),attrs.get(i).getName()).type.equals("TEXT")){
+                    throw new RuntimeException("Cannot sum or average text attribute: " + attrs.get(i).getName());
+                }
+            }
+        }
+        return true;
     }
     private List<Schema.Table> buildScope(Schema schema) {
         List<Schema.Table> scope = new ArrayList<>();

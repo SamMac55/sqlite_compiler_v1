@@ -1,0 +1,26 @@
+// TC-S1: Selected attribute not in any scoped table
+employees ghost;
+
+//TC-S2: Aggregation (total/average) on non-numeric column
+employees average first_name;
+
+//TC-S3: Non-aggregated non-grouped column in select with group by
+employees first_name, department_id group by department_id;
+
+//TC-S4: Aggregation function in where clause
+employees employee_id with count employee_id greater than 5;
+
+//TC-J1: Joined table does not exist in schema
+employees all with ghost_table using employee.employee_id;
+
+//TC-J2: ON condition attribute does not exist in both tables
+employees all with departments using employees.ghost;
+
+// TC-O1: ORDER BY attribute not in scope
+employees all sorted by ghost asc;
+
+//TC-O2: ORDER BY non-grouped non-aggregated attribute in grouped query
+employees first_name sorted by salary asc group by first_name;
+
+//TC-H1: HAVING references non-grouped non-aggregated attribute
+employees first_name group by first_name having salary greater than 50000;

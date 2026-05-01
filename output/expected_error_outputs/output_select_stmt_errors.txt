@@ -1,0 +1,68 @@
+// TC-S1: Selected attribute not in any scoped table
+//employees ghost;
+java.lang.RuntimeException: Attribute not found in table: employees.ghost
+        at ASTNode.resolveAttribute(ASTNode.java:40)
+        at SelectNode.validateSelectedAttributes(SelectNode.java:242)
+        at SelectNode.validate(SelectNode.java:27)
+        at Driver.main(Driver.java:57)
+
+//TC-S2: Aggregation (total/average) on non-numeric column
+//employees average first_name;
+java.lang.RuntimeException: Cannot sum or average text attribute: first_name
+        at SelectNode.validateAggregatedAttributes(SelectNode.java:273)
+        at SelectNode.getAggregatedAttributes(SelectNode.java:265)
+        at SelectNode.validate(SelectNode.java:24)
+        at Driver.main(Driver.java:57)
+
+//TC-S3: Non-aggregated non-grouped column in select with group by
+// employees first_name, department_id group by department_id;
+java.lang.RuntimeException: Non-aggregated column must appear in GROUP BY: employees.first_name
+        at SelectNode.validateGroupBySelectConsistency(SelectNode.java:201)
+        at SelectNode.validateGroupBy(SelectNode.java:217)
+        at SelectNode.validate(SelectNode.java:27)
+        at Driver.main(Driver.java:57)
+
+//TC-S4: Aggregation function in where clause
+employees employee_id with count employee_id greater than 5;
+java.lang.RuntimeException: Aggregations are not allowed in WHERE: COUNT(employee_id)
+        at SelectNode.validateWhereClause(SelectNode.java:229)
+        at SelectNode.validate(SelectNode.java:26)
+        at Driver.main(Driver.java:57)
+
+//TC-J1: Joined table does not exist in schema
+//employees all with ghost_table using employee.employee_id;
+java.lang.RuntimeException: Joined table not found: ghost_table
+        at SelectNode.buildScope(SelectNode.java:291)
+        at SelectNode.validate(SelectNode.java:23)
+        at Driver.main(Driver.java:57)
+
+//TC-J2: ON condition attribute does not exist in both tables
+//employees all with departments using employees.ghost;
+java.lang.RuntimeException: Joined table and Condition Table do not both contain attribute: ghost
+        at JoinNode.validate(ASTNode.java:207)
+        at SelectNode.buildScope(SelectNode.java:295)
+        at SelectNode.validate(SelectNode.java:23)
+        at Driver.main(Driver.java:57)
+
+// TC-O1: ORDER BY attribute not in scope
+employees all sorted by ghost asc;
+java.lang.RuntimeException: ORDER BY: Attribute not found in any table: ghost
+        at OrderNode.validate(ASTNode.java:236)
+        at SelectNode.validateOrderBy(SelectNode.java:145)
+        at SelectNode.validate(SelectNode.java:28)
+        at Driver.main(Driver.java:57)
+
+//TC-O2: ORDER BY non-grouped non-aggregated attribute in grouped query
+//employees first_name sorted by salary asc group by first_name;
+java.lang.RuntimeException: ORDER BY attribute must be grouped or aggregated: salary
+        at SelectNode.validateOrderBy(SelectNode.java:158)
+        at SelectNode.validate(SelectNode.java:28)
+        at Driver.main(Driver.java:57)
+
+//TC-H1: HAVING references non-grouped non-aggregated attribute
+employees first_name group by first_name having salary greater than 50000;
+java.lang.RuntimeException: HAVING attribute must be grouped or aggregated: salary
+        at SelectNode.validateHavingClause(SelectNode.java:179)
+        at SelectNode.validateGroupBy(SelectNode.java:218)
+        at SelectNode.validate(SelectNode.java:27)
+        at Driver.main(Driver.java:57)

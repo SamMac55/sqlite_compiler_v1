@@ -1,0 +1,46 @@
+// TC-P1: Duplicate column names
+//new table person { int id, int id };
+java.lang.RuntimeException: Duplicate attribute names in create table: person
+        at CreateTableNode.validate(ASTNode.java:521)
+        at Driver.main(Driver.java:57)
+
+// TC-P2: Invalid data type
+//new table person { float age };
+line 5:19 mismatched input 'float' expecting {'int', 'double', 'String', 'boolean'}
+line 5:29 extraneous input '}' expecting {';', 'with', 'sorted', 'group'}
+java.lang.NullPointerException: Cannot invoke "CreateAttributeNode.validate(Schema, java.util.List)" because "<local5>" is null
+        at CreateTableNode.validate(ASTNode.java:513)
+        at Driver.main(Driver.java:57)
+
+// TC-P3: FK referencing non-existent table
+//new table orders { int cid (reference customers) };
+java.lang.RuntimeException: Referenced table not found in schema: customers
+        at CreateAttributeNode.validate(ASTNode.java:580)
+        at CreateTableNode.validate(ASTNode.java:513)
+        at Driver.main(Driver.java:57)
+
+// TC-P4: FK referencing non-existent attribute in referenced table
+//new table orders { int ghost_col (reference employees) };
+java.lang.RuntimeException: Referenced attribute not found in referenced table: ghost_col
+        at CreateAttributeNode.validate(ASTNode.java:582)
+        at CreateTableNode.validate(ASTNode.java:513)
+        at Driver.main(Driver.java:57)
+
+// TC-P5: FK type mismatch with referenced column
+//new table orders { String employee_id (reference employees) };
+java.lang.RuntimeException: Type mismatch in foreign key reference: TEXT vs INTEGER
+        at CreateAttributeNode.validate(ASTNode.java:584)
+        at CreateTableNode.validate(ASTNode.java:513)
+        at Driver.main(Driver.java:57)
+
+// TC-P6: Creating a table that already exists
+//new table employees {int employee_id (pk)};
+java.lang.RuntimeException: Table already exists in schema: employees
+        at CreateTableNode.validate(ASTNode.java:510)
+        at Driver.main(Driver.java:57)
+
+// TC-D2: DROP TABLE that does not exist
+//remove table ghost;
+java.lang.RuntimeException: Cannot delete table that does not exist in schema: ghost
+        at DeleteTableNode.validate(ASTNode.java:323)
+        at Driver.main(Driver.java:57)

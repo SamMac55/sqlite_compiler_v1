@@ -1,0 +1,23 @@
+//TC-W1: Type mismatch in comparison (String vs int)
+remove employees with salary is 'hello';
+
+//TC-W2: NULL used with inequality on NOTNULL column
+remove employees with first_name is not null;
+
+// TC-W3: Attribute in WHERE not found in table
+remove employees with ghost_col is 5;
+
+// TC-U1: UPDATE on non-existent table
+change ghost set name = 'Alice' with ghost_id is 1;
+
+// TC-U2: Type mismatch in SET assignment
+change employees set salary = 'not_a_number' with employee_id is 1;
+
+// TC-I1: INSERT into non-existent table
+add ghost (id = 1);
+
+// TC-I2: INSERT with wrong type for column
+add employees (employee_id='hello', first_name='this', last_name='is', email='a', salary='test', department_id=5);
+
+// TC-D1: DELETE row from non-existent table
+remove ghost with id is 1;
