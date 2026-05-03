@@ -17,7 +17,7 @@ public class Driver {
         try{
             //get the name of the database file
 
-            ProcessBuilder pb = new ProcessBuilder("python", "extract_schema.py", dbFile);
+            ProcessBuilder pb = new ProcessBuilder("python3", "extract_schema.py", dbFile);
             pb.inheritIO();
             Process p = pb.start();
 
@@ -81,7 +81,7 @@ public class Driver {
         }
         writer.close();
         try{
-            ProcessBuilder pb2 = new ProcessBuilder("python", "run_queries.py", dbFile);
+            ProcessBuilder pb2 = new ProcessBuilder("python3", "run_queries.py", dbFile);
             pb2.inheritIO();
             Process p2 = pb2.start();
             p2.waitFor();
