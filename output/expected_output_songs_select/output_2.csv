@@ -1,2 +1,4 @@
-playlist_id,COUNT(playlist_songs.song_id)
-1,3
+COUNT(*),album_name
+2,First Light
+2,Midnight Dreams
+1,Unplugged

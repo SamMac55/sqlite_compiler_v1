@@ -1,3 +1,5 @@
+SELECT COUNT(*) FROM songs;
+SELECT COUNT(*), albums.album_name FROM songs JOIN albums ON albums.album_id = songs.album_id  GROUP BY album_name;
 SELECT songs.* FROM songs ORDER BY song_title, duration ASC LIMIT 3;
 SELECT playlist_songs.playlist_id, COUNT(playlist_songs.song_id) FROM playlist_songs GROUP BY playlist_id HAVING playlist_id = 1;
 SELECT SUM(songs.duration), albums.album_name FROM songs JOIN albums ON albums.album_id = songs.album_id  GROUP BY album_name ORDER BY SUM(duration) DESC LIMIT 2;

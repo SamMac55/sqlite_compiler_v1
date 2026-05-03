@@ -35,7 +35,11 @@ class SelectNode extends ASTNode{
         List<String> finalAttrs = new ArrayList<>();
         for(AttributeReference attr: selectedAttributes){
             if(attr instanceof AllReference){
-                finalAttrs.add(mainTableName+".*");
+                if(((AllReference)attr).function==null && attr.tableName.equals(mainTableName)){
+                    finalAttrs.add(mainTableName+".*");
+                }else{
+                    finalAttrs.add("COUNT(*)");
+                }
             }else{
                 if(attr.getTableName().equals(mainTableName)){
                     String func;
@@ -50,7 +54,7 @@ class SelectNode extends ASTNode{
         }
         for(JoinNode j : join){
             for(AttributeReference attr: selectedAttributes){
-                if(attr instanceof AllReference){
+                if(attr instanceof AllReference && attr.tableName.equals(j.table)){
                     finalAttrs.add(j.table+".*");
                 }else{
                     if(attr.getTableName().equals(j.table)){

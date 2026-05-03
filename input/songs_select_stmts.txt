@@ -1,3 +1,9 @@
+//COUNT(*) cases
+
+songs count all;
+
+songs count all with albums album_name using songs.album_id group by album_name;
+
 //limit with more than 1
 find 3 songs all sorted by song_title,duration;
 

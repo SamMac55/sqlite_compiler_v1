@@ -1,3 +1,4 @@
-SUM(songs.duration),album_name
-440,Midnight Dreams
-390,First Light
+song_id,song_title,duration,album_id
+3,City Lights,200,2
+4,Moonwalk,240,2
+1,Rising Sun,210,1

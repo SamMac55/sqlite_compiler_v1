@@ -46,7 +46,9 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
         String mainTableName = ctx.tableSource().getText();
         //get the selected attributes (empty list means select *)
         List<AttributeReference> selectedAttributes = new ArrayList<>();
-        selectedAttributes.addAll(getAttributeReferences(ctx.selectList(),mainTableName));
+        List<AttributeReference> mainAttributes = getAttributeReferences(ctx.selectList(),mainTableName);
+       
+        selectedAttributes.addAll(mainAttributes);
         //get the limit (-1 means no limit)
         int limit = -1;
         if(ctx.limitClause() != null){
@@ -78,7 +80,7 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
             }
             groupBy = new GroupNode(getAttributeReferences(ctx.groupClause().attributeList()), having);
         }
-        
+        // if the main attributes is the COUNT(*) then we make selected attributes empty as a signal.
         return new SelectNode(mainTableName, selectedAttributes, limit, joins, whereCaluse, groupBy, orderBy);
         
     }
@@ -183,7 +185,11 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
         List<AttributeReference> attributes = new ArrayList<>();
         if(ctx == null) return attributes;
         if(ctx instanceof liteQLParser.AllContext){
-            attributes.add(new AllReference(tablename,"all",null));
+            if(((liteQLParser.AllContext)ctx).COUNT() !=null){
+                attributes.add(new AllReference(tablename,"all","count"));
+            }else{
+                attributes.add(new AllReference(tablename,"all",null));
+            }
         }else{
             for(liteQLParser.AttributeContext attr : ((liteQLParser.ListContext)ctx).attributeList().attribute()){
                 attributes.add(new AttributeReference(tablename,attr.attr.getText(),attr.function()==null ? null : attr.function().getText()));
