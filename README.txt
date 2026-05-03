@@ -5,12 +5,14 @@ If you run python scripts using "python SCRIPTNAME.py", or some other way, the P
 Run "python3 test.py" to test if your python is configured properly for the program.
 
 # Installing Python3
+
 ## Windows
-There are two main ways to install Python on Windows:
+
 ### Option 1: Microsoft Store
 Open the Microsoft Store app.
 Search for "Python" and select the latest stable version (e.g., Python 3.12 or 3.13).
 Click Get or Install. This version automatically handles updates and adds Python to your system PATH
+
 ### Option 2: Official Installer
 Download the installer from Python.org.
 Run the .exe file.
@@ -61,6 +63,7 @@ sudo apt install sqlite3
 
 2. Verify that this works:
 sqlite3 --version
+
 
 # How to build and run (WSL/Linux)
 1. Start by running:
