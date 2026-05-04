@@ -17,3 +17,6 @@ projects project_name with budget at most 45000;
 
 // limit clause
 find 1 employees first_name,last_name,salary sorted by salary with department_id greater than 1;
+
+//count * with attribute list
+employees department_id with departments count all, dept_name using employees.department_id group by employees.department_id,dept_name;
