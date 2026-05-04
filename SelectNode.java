@@ -23,6 +23,7 @@ class SelectNode extends ASTNode{
         List<Schema.Table> scope = buildScope(schema);
         List<AttributeReference> aggregated = getAggregatedAttributes(scope);
         validateSelectedAttributes(schema, scope);
+        validateAggregateUsage(aggregated);
         validateWhereClause(schema, scope);
         validateGroupBy(schema, scope, aggregated);
         validateOrderBy(schema, scope, aggregated);
@@ -303,5 +304,24 @@ class SelectNode extends ASTNode{
         }
 
         return scope;
+    }
+    private void validateAggregateUsage(List<AttributeReference> aggregated) {
+        boolean hasAggregate = !aggregated.isEmpty();
+        boolean hasNonAggregate = false;
+
+        for (AttributeReference attr : selectedAttributes) {
+            if (attr instanceof AllReference && hasNonAggregate) continue;
+
+            if (attr.function == null) {
+                hasNonAggregate = true;
+                break;
+            }
+        }
+
+        if (hasAggregate && hasNonAggregate && groupBy == null) {
+            throw new RuntimeException(
+                "Cannot mix aggregated and non-aggregated columns without GROUP BY"
+            );
+        }
     }
 }

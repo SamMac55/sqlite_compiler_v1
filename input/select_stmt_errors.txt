@@ -24,3 +24,6 @@ employees first_name sorted by salary asc group by first_name;
 
 //TC-H1: HAVING references non-grouped non-aggregated attribute
 employees first_name group by first_name having salary greater than 50000;
+
+// aggregation without group by
+employees employee_id, average salary;

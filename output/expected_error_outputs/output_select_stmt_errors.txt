@@ -66,3 +66,11 @@ java.lang.RuntimeException: HAVING attribute must be grouped or aggregated: sala
         at SelectNode.validateGroupBy(SelectNode.java:218)
         at SelectNode.validate(SelectNode.java:27)
         at Driver.main(Driver.java:57)
+
+
+// aggregation without group by
+employees employee_id, average salary;
+java.lang.RuntimeException: Cannot mix aggregated and non-aggregated columns without GROUP BY
+        at SelectNode.validateAggregateUsage(SelectNode.java:322)
+        at SelectNode.validate(SelectNode.java:26)
+        at Driver.main(Driver.java:67)
