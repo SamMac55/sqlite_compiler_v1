@@ -6,7 +6,11 @@ import java.util.ArrayList;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.RecognitionException;
+import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.BailErrorStrategy;
+import org.antlr.v4.runtime.BaseErrorListener;
 
 public class Driver {
     public static void main(String[] args) throws Exception {
@@ -31,6 +35,9 @@ public class Driver {
             schema_grammarLexer schemaLexer = new schema_grammarLexer(schemaInput);
             CommonTokenStream schemaTokens = new CommonTokenStream(schemaLexer);
             schema_grammarParser schemaParser = new schema_grammarParser(schemaTokens);
+            schemaParser.removeErrorListeners();
+            schemaParser.addErrorListener(createThrowingErrorListener());
+            schemaParser.setErrorHandler(new BailErrorStrategy());
             ParseTree schemaTree = schemaParser.program();
             schemaVisitor = new CreateSchemaVisitor();
             schemaVisitor.visit(schemaTree);
@@ -41,6 +48,9 @@ public class Driver {
             CommonTokenStream tokens = new CommonTokenStream(lexer);
 
             liteQLParser parser = new liteQLParser(tokens);
+            parser.removeErrorListeners();
+            parser.addErrorListener(createThrowingErrorListener());
+            parser.setErrorHandler(new BailErrorStrategy());
 
             // use program rule
             ParseTree tree = parser.program();
@@ -68,6 +78,9 @@ public class Driver {
             //         System.out.println("  Attribute: " + a.attr_name + " Type: " + a.type + " Constraints: " + a.constraints);
             //     }
             // }
+        }catch(SyntaxErrorException e){
+            System.err.println(e.getMessage());
+            return; // stop ONLY for syntax errors
         }catch(FileNotFoundException e){
             System.out.println("Schema file or database file does not exist");
             return;
@@ -88,5 +101,26 @@ public class Driver {
         }catch(Exception e){
             System.out.println("Unable to execute statements against database.");
         }
+    }
+    private static BaseErrorListener createThrowingErrorListener() {
+        return new BaseErrorListener() {
+            @Override
+            public void syntaxError(Recognizer<?, ?> recognizer,
+                                    Object offendingSymbol,
+                                    int line,
+                                    int charPositionInLine,
+                                    String msg,
+                                    RecognitionException e) {
+                throw new SyntaxErrorException(
+                    "Syntax error at line " + line + ":" + charPositionInLine + " - " + msg
+                );
+            }
+        };
+    }
+}
+
+class SyntaxErrorException extends RuntimeException {
+    public SyntaxErrorException(String message) {
+        super(message);
     }
 }
