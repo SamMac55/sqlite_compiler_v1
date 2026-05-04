@@ -1,6 +1,7 @@
 import java.util.List;
 import java.util.Objects;
 import java.util.ArrayList;
+//a select node is an ast node that holds a lot of data
 class SelectNode extends ASTNode{
     int limit = -1; // -1 means no limit
     String mainTableName;
@@ -20,10 +21,15 @@ class SelectNode extends ASTNode{
     }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        //make the scope of the statement
         List<Schema.Table> scope = buildScope(schema);
+        //get a list of aggregated attribues
         List<AttributeReference> aggregated = getAggregatedAttributes(scope);
+        //do all attirbutes exist in scope?
         validateSelectedAttributes(schema, scope);
+        //is there a group by if necessary?
         validateAggregateUsage(aggregated);
+        // are the clauses valid?
         validateWhereClause(schema, scope);
         validateGroupBy(schema, scope, aggregated);
         validateOrderBy(schema, scope, aggregated);
@@ -34,14 +40,16 @@ class SelectNode extends ASTNode{
     public String emitSQL() {
         //make the final attribte list
         List<String> finalAttrs = new ArrayList<>();
+        //for each attribute reference, print it accoridngly
         for(AttributeReference attr: selectedAttributes){
             if(attr instanceof AllReference){
                 if(((AllReference)attr).function==null && attr.tableName.equals(mainTableName)){
                     finalAttrs.add(mainTableName+".*");
                 }else{
-                    finalAttrs.add("COUNT(*)");
+                    finalAttrs.add("COUNT(*)"); //special case
                 }
             }else{
+                //normal case just print the name and attribute
                 if(attr.getTableName().equals(mainTableName)){
                     String func;
                     if(attr.function !=null){
@@ -53,6 +61,7 @@ class SelectNode extends ASTNode{
                 }
             }
         }
+        //same logic as main table (except no count * since it wouldve been handled previously)
         for(JoinNode j : join){
             for(AttributeReference attr: selectedAttributes){
                 if(attr instanceof AllReference && attr.tableName.equals(j.table)){
@@ -71,12 +80,14 @@ class SelectNode extends ASTNode{
                 }
             }
         }
-
+        //start building the statement
         String selectClause = "SELECT " + String.join(", ", finalAttrs);
         String joinClause = "";
+        //build join cluase
         for(JoinNode j : join){
             joinClause += j.emitSQL() + " ";
         }
+        //final statement
         return selectClause + " FROM " + mainTableName +
             (!join.isEmpty() ? " " + joinClause : "") +
             (whereClause != null ? " WHERE " + whereClause.emitSQL() : "") +
@@ -84,6 +95,7 @@ class SelectNode extends ASTNode{
             (orderBy != null ? " " + orderBy.emitSQL() : "") +
             (limit != -1 ? " LIMIT " + limit : "") + ";";
     }
+    //helper to get aggregation functions in sqlite-friendly format
     public static String getFunction(String func){
         switch (func){
             case "min":
@@ -100,6 +112,7 @@ class SelectNode extends ASTNode{
                 throw new RuntimeException("Function not found " + func);
         }
     }
+    //make sure that aggregations are proper
     private void enforceAggregationMatch(AttributeReference attr,
                                      List<AttributeReference> aggregated,
                                      List<Schema.Table> scope,
@@ -131,6 +144,7 @@ class SelectNode extends ASTNode{
             }
         }
     }
+    //do we have a grouped attribute?
     private boolean isGrouped(AttributeReference attr) {
         if (groupBy == null) return false;
 
@@ -142,6 +156,7 @@ class SelectNode extends ASTNode{
         }
         return false;
     }
+    // make sure the order by is valid and has vliad aggregations
     private void validateOrderBy(Schema schema,
                             List<Schema.Table> scope,
                             List<AttributeReference> aggregated) {
@@ -170,6 +185,7 @@ class SelectNode extends ASTNode{
             enforceAggregationMatch(attr, aggregated, scope, "ORDER BY");
         }
     }
+    //similar to order by
     private void validateHavingClause(List<Schema.Table> scope,
                                 List<AttributeReference> aggregated) {
 
@@ -190,6 +206,7 @@ class SelectNode extends ASTNode{
             enforceAggregationMatch(attr, aggregated, scope, "HAVING");
         }
     }
+    //make sure grouped attributes are consistent with the select (non aggregated columns need to be in a group by)
     private void validateGroupBySelectConsistency() {
         for (AttributeReference selected : selectedAttributes) {
             if (selected instanceof AllReference) continue;
@@ -210,6 +227,7 @@ class SelectNode extends ASTNode{
             }
         }
     }
+    //validate group by using .validate and the previous method
     private void validateGroupBy(Schema schema,
                             List<Schema.Table> scope,
                             List<AttributeReference> aggregated) {
@@ -223,6 +241,7 @@ class SelectNode extends ASTNode{
         validateGroupBySelectConsistency();
         validateHavingClause(scope, aggregated);
     }
+    //validate the where caluse to make sure that there are no aggregatiosn
     private void validateWhereClause(Schema schema, List<Schema.Table> scope) {
         if (whereClause == null) return;
 
@@ -238,6 +257,7 @@ class SelectNode extends ASTNode{
             }
         }
     }
+    //make sure each attribute exists and if aggregated is not of an invalid type
     private void validateSelectedAttributes(Schema schema, List<Schema.Table> scope) {
         for (AttributeReference attr : selectedAttributes) {
             if (attr instanceof AllReference) continue;
@@ -259,6 +279,7 @@ class SelectNode extends ASTNode{
             }
         }
     }
+    //helper so we know what the aggregated attributes are
     private List<AttributeReference> getAggregatedAttributes(List<Schema.Table> scope) {
         List<AttributeReference> aggregated = new ArrayList<>();
         List<String> functions = new ArrayList<>();
@@ -271,6 +292,7 @@ class SelectNode extends ASTNode{
         if(validateAggregatedAttributes(scope,aggregated, functions)) return aggregated;
         else throw new RuntimeException("Issue with aggregated function list");
     }
+    //helper to vlaidate that aggregated attribuets are aggreagted properly (no type mismatch)
     private boolean validateAggregatedAttributes(List<Schema.Table> scope,List<AttributeReference> attrs, List<String> funcs){
         if(attrs.size()!= funcs.size()){return false;}
         for(int i = 0; i< attrs.size(); i++){
@@ -282,6 +304,7 @@ class SelectNode extends ASTNode{
         }
         return true;
     }
+    //add all tables to scope
     private List<Schema.Table> buildScope(Schema schema) {
         List<Schema.Table> scope = new ArrayList<>();
 
@@ -305,6 +328,7 @@ class SelectNode extends ASTNode{
 
         return scope;
     }
+    //make sure that aggregated attributes are not mixed with non aggreagted
     private void validateAggregateUsage(List<AttributeReference> aggregated) {
         boolean hasAggregate = !aggregated.isEmpty();
         boolean hasNonAggregate = false;

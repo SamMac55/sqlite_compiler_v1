@@ -51,7 +51,7 @@ public abstract class ASTNode {
     }
 }
 
-
+// nodes for things like employee_id is 5
 class AttributeComparisonNode extends ASTNode {
     AttributeReference lhs;
     String op;
@@ -119,7 +119,7 @@ class AttributeComparisonNode extends ASTNode {
         return lhsStr + " " + actualOp + " " + rhsStr;
     }
 }
-
+// for things like employee_id greater than 5 or first_name is 'Sam'
 class ConjoinedComparisonNode extends ASTNode{
     AttributeComparisonNode left;
     String conjunction; // "AND" or "OR"
@@ -131,25 +131,29 @@ class ConjoinedComparisonNode extends ASTNode{
     }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        //if we are at the base case just validate that expression
         if (right == null && conjunction == null) {
             return left.validate(schema, tablesInScope);
         }
-
+        // if we have a conjunction but no rhs, throw error
         if (right == null) {
             throw new RuntimeException("Hanging conjunction in attribute comparison: " + conjunction);
         }
-
+        //validate both sides of equation
         boolean leftValid  = left.validate(schema, tablesInScope);
         boolean rightValid = right.validate(schema, tablesInScope);
 
         return leftValid && rightValid;
     }
+
     @Override public String emitSQL() {
         if(right == null){
             return left.emitSQL();
         }
         return left.emitSQL() + " " + conjunction + " " + right.emitSQL();
     }
+
+    //helper method for emit/validations in selectNode.java that gets all of the attribute references in the comparisons
     public List<AttributeReference> getAttrRefsInComp() {
         Set<AttributeReference> refs = new HashSet<>();
 
@@ -158,6 +162,7 @@ class ConjoinedComparisonNode extends ASTNode{
         return new ArrayList<>(refs);
     }
 
+    //helper method that gets all of the attribute ref
     private void collectRecursive(ConjoinedComparisonNode node, Set<AttributeReference> refs) {
         if (node == null) return;
 
@@ -167,7 +172,7 @@ class ConjoinedComparisonNode extends ASTNode{
             collectRecursive(node.right, refs);
         }
     }
-
+    // helper method when we compare two attributes together
     private void collectFromComparison(AttributeComparisonNode comp, Set<AttributeReference> refs) {
         if (comp == null) return;
 
@@ -180,33 +185,37 @@ class ConjoinedComparisonNode extends ASTNode{
         }
     }
 }
-
+// join cluase of select statments
 class JoinNode extends ASTNode{
-    String table;
-    String onCondition;
-    String onConditionTable;
+    String table;// table being joined
+    //ex employees all with departments using employees.department_id
+    String onCondition; //conditin of the join, from example: onCondition=department_id
+    String onConditionTable; //table recieving added table, from example: onConditionTable= employees
     public JoinNode(String table, String onCondition, String onConditionTable) {
         this.table = table;
         this.onCondition = onCondition;
         this.onConditionTable = onConditionTable;
     }
+
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
         Schema.Table joinedTable = schema.getTable(table);
         Schema.Table conditionTable = schema.getTable(onConditionTable);
-        if(joinedTable == null){
+        //make sure both tables are valid
+        if(joinedTable == null){ 
             throw new RuntimeException("Joined table not found in schema: " + table);
         }
         if(conditionTable==null){
             throw new RuntimeException("Table with condition to join not found in schema: " + onConditionTable);
         }
+        //if both tables are valid and in current scope, do they both have the condition attribute?
         if(tablesInScope.contains(conditionTable) && tablesInScope.contains(joinedTable)){
             if(conditionTable.hasAttribute(onCondition) && joinedTable.hasAttribute(onCondition)){
                 return true;
             }
-            throw new RuntimeException("Joined table and Condition Table do not both contain attribute: " + onCondition);
+            throw new RuntimeException("Joined table and Condition Table do not both contain attribute: " + onCondition); //they don't both have condition attribute
         }else{
-            throw new RuntimeException("Schema does not contain both Condition Table: " + conditionTable + " and Joined Table: " + joinedTable );
+            throw new RuntimeException("Schema does not contain both Condition Table: " + conditionTable + " and Joined Table: " + joinedTable ); //one of or both of the tables are not in schema
         }
     }
     @Override
@@ -216,7 +225,7 @@ class JoinNode extends ASTNode{
             " = " + onConditionTable + "." + onCondition;
     }
 }
-
+// order clause of select statement
 class OrderNode extends ASTNode{
     List<AttributeReference> attributes; // attributes to order by
     String order; // "ASC" or "DESC"
@@ -252,7 +261,7 @@ class OrderNode extends ASTNode{
         return sb.toString();
     }
 }
-
+//group clause of select statemnt
 class GroupNode extends ASTNode{
     List<AttributeReference> attributes; // attributes to group by
     HavingNode having; // null if no having clause
@@ -262,8 +271,10 @@ class GroupNode extends ASTNode{
     }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        //if we have a having clause is it valid? 
         if(having != null && !having.validate(schema,tablesInScope))
             throw new RuntimeException("Invalid having clause for select statement\'s groupby");
+        //find the attributes + ensure no ambiguity
         for(AttributeReference attr: attributes){
             boolean found = false;
 
@@ -293,7 +304,7 @@ class GroupNode extends ASTNode{
         // emit the SQL representation of the group by statement
     }
 }
-
+//having clause (sub clause of group by)
 class HavingNode extends ASTNode{
     ConjoinedComparisonNode condition; // condition for the having clause
     public HavingNode(ConjoinedComparisonNode condition) {
@@ -301,6 +312,7 @@ class HavingNode extends ASTNode{
     }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        //is the condition of the having valid?
         if(!condition.validate(schema, tablesInScope))
             throw new RuntimeException("Invalid having clause for group by");
         return true;
@@ -309,24 +321,26 @@ class HavingNode extends ASTNode{
         return "HAVING " + condition.emitSQL();
     }
 }
-
+//delete table statement
 class DeleteTableNode extends ASTNode{
     String tableID;
     public DeleteTableNode(String tableID) {
         this.tableID = tableID;
     }
     @Override public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        //if the table is in the schema, safely remove it
         if(schema.getTable(tableID) != null){
             schema.tables.remove(schema.getTable(tableID));
             return true;
         }
+        //if not throw an exception. An alternative to this is to instead emit "DROP TABLE IF EXISTS"
         throw new RuntimeException("Cannot delete table that does not exist in schema: " + tableID);
     }
     @Override public String emitSQL() {
         return "DROP TABLE " + tableID + ";";
     }
 }
-
+//Delete row statement
 class DeleteRowNode extends ASTNode{
     String tableID;
     ConjoinedComparisonNode whereClause; // null if no where clause
@@ -335,12 +349,15 @@ class DeleteRowNode extends ASTNode{
         this.whereClause = whereClause;
     }
     @Override public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        //make sure the table exists
         Schema.Table t = schema.getTable(tableID);
         if(t == null){
             throw new RuntimeException("Cannot delete a row from a table that does not exist: " + tableID);
         }
+        //add the valid table to the scope so the where clause can properly validate
         List<Schema.Table> scope = new ArrayList<>();
         scope.add(t);
+        //if there is a where clause is it valid?
         if(whereClause != null && !whereClause.validate(schema, scope)){
             throw new RuntimeException("Invalid where clause in delete statement");
         }
@@ -351,6 +368,7 @@ class DeleteRowNode extends ASTNode{
             (whereClause != null ? " WHERE " + whereClause.emitSQL() : "") + ";";
     }
 }
+//update statement
 class UpdateNode extends ASTNode{
     String tableID;
     AssignmentListNode assignments;
@@ -362,15 +380,19 @@ class UpdateNode extends ASTNode{
      }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        //does this table exist?
         Schema.Table t = schema.getTable(tableID);
         if(t == null){
             throw new RuntimeException("Cannot update row for table that does not exist: " + tableID);
         }
+        //if it does exist add it to scope for proper validations
         List<Schema.Table> scope = new ArrayList<>();
         scope.add(t);
+        //are the assignments in the table valid?
         if(!assignments.validate(schema, scope)){
             throw new RuntimeException("Invalid assignment list in update statement");
         }
+        //is there where clause (if it exists) valid?
         if(whereClause != null && !whereClause.validate(schema, scope)){
             throw new RuntimeException("Invalid where clause in update statement");
         }
@@ -392,30 +414,37 @@ class InsertNode extends ASTNode{
      }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        //does this table exist?
         Schema.Table t = schema.getTable(tableID);
         if(t == null){
             throw new RuntimeException("Cannot insert into a table that does not exist: " + tableID);
         }
+        //if it does exist add it to scope for validations
         List<Schema.Table> scope = new ArrayList<>();
         scope.add(t);
+        //are the assignment lists valid?
         for(AssignmentListNode assign : assignments){
             if(!assign.validate(schema, scope)){
-            throw new RuntimeException("Invalid assignment list in insert statement");
-        }
+                throw new RuntimeException("Invalid assignment list in insert statement");
+            }
         }
         return true;
     }
     @Override
     public String emitSQL() {
         StringBuilder sb = new StringBuilder();
+        //we need to do multiple inserts sometiems to make multiple insert statemetns if neccessary (could be improved to just one in the future)
         for(AssignmentListNode list : assignments){
             sb.append("INSERT INTO ").append(tableID).append(" (");
             List<String> columns = new ArrayList<>();
             List<String> values = new ArrayList<>();
+            //get the assignments for that insert statement
             for(AssignmentStatementNode assignment: list.assignments){
                 columns.add(assignment.attribute.getName());
                 values.add(assignment.value.getValue().toString());
             }
+
+            //construct the statemetn based on the attributes and their values
             sb.append(String.join(", ", columns));
             sb.append(") VALUES (");
             sb.append(String.join(", ", values));
@@ -424,7 +453,7 @@ class InsertNode extends ASTNode{
          return sb.toString();
     }
 }
-
+//used in assignment lists
 class AssignmentStatementNode extends ASTNode{
     AttributeReference attribute;
     Value value;
@@ -434,17 +463,22 @@ class AssignmentStatementNode extends ASTNode{
     }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        //does this attribute exist?
         Schema.Attribute attr = ASTNode.resolveAttribute(tablesInScope, attribute.getTableName(), attribute.getName());
         if(attr == null){
             throw new RuntimeException("Attribute not found in schema: " + attribute.toString());
         }
+        //what is the type of the attribute and of the value being assigned?
         String type = attr.type;
         String valueType = value.getValueType();
+        //if the value is an AttributeReference we need to do soemthing a bit different
         if(value instanceof AttributeReference){
+            //check if it exists
             Schema.Attribute valueAttr = resolveAttribute(tablesInScope,((AttributeReference)value).getTableName(),((AttributeReference)value).getName());
             if(valueAttr==null){
                 throw new RuntimeException("Attribute not found in schema: " + value.toString());
             }
+            //is it compaitible with our lhs?
             if((valueAttr.type.equals("REAL") || valueAttr.type.equals("INTEGER")) &&
             (type.equals("REAL") || type.equals("INTEGER"))){ 
                 return true;
@@ -454,6 +488,7 @@ class AssignmentStatementNode extends ASTNode{
                 throw new RuntimeException("Cannot compare attributes of different types: " + value.toString() + ", " + attr.toString());
             }
         }
+        //if it is jsut a normal value... are the types compatible?
         if ((type.equals("REAL") || type.equals("INTEGER")) &&
             (valueType.equals("REAL") || valueType.equals("INTEGER"))) {
             return true;
@@ -468,7 +503,7 @@ class AssignmentStatementNode extends ASTNode{
         return attribute.getName() + " = " + value.getValue().toString();
     }
 }
-
+//used in inserting and updating, constructed of a list of assignment statements
 class AssignmentListNode extends ASTNode{
     List<AssignmentStatementNode> assignments;
     public AssignmentListNode(List<AssignmentStatementNode> assignments) {
@@ -476,6 +511,7 @@ class AssignmentListNode extends ASTNode{
     }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        //are all the assignments valid?
         for(AssignmentStatementNode assignment: assignments){
             if(!assignment.validate(schema, tablesInScope)){
                 throw new RuntimeException("Invalid assignment in set clause for update statement");
@@ -483,6 +519,7 @@ class AssignmentListNode extends ASTNode{
         }
         return true;
     }
+    //create the list by just adding commas to each assignment (this could probably be done in a oneliner with String.join?)
     @Override
     public String emitSQL() {
         StringBuilder sb = new StringBuilder();
@@ -495,9 +532,9 @@ class AssignmentListNode extends ASTNode{
         return sb.toString();
     }
 }
-
+//create table statement
 class CreateTableNode extends ASTNode{
-    List<CreateAttributeNode> attributes;
+    List<CreateAttributeNode> attributes; //list of new attributes
     String tableID;
     public CreateTableNode(String tableID, List<CreateAttributeNode> attributes) {
         this.tableID = tableID;
@@ -505,21 +542,27 @@ class CreateTableNode extends ASTNode{
     }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        //make the new attribute names a hashset (prevents duplicate attr names of different types)
         Set<String> newAttrNames = new HashSet<>();
+        //does this table already exist?
         if(schema.hasTable(tableID)){
             throw new RuntimeException("Table already exists in schema: " + tableID);
         }
+        //is the attribute itself valid?
         for(CreateAttributeNode attribute: attributes){
             if(!attribute.validate(schema, tablesInScope)){
                 throw new RuntimeException("Invalid attribute in create table statement");
             }
         }
+        //if we encountered no issues add all of the attributes (could probably have been done in previous for loop)
         for(CreateAttributeNode attr: attributes){
             newAttrNames.add(attr.name);
         }
+        //check for duplicates
         if(newAttrNames.size() != attributes.size()){
             throw new RuntimeException("Duplicate attribute names in create table: " + tableID);
         }
+        //if all is good add the table to the schema
         createTable();
         return true;
     }
@@ -536,22 +579,31 @@ class CreateTableNode extends ASTNode{
         sb.append(");");
         return sb.toString();
     }
+    //how to add table to schema
     private void createTable(){
+        //create a new table first
         Schema.Table newTable = new Schema.Table(tableID);
+        //then for each new attribute...
         for(CreateAttributeNode attrNode: attributes){
+            //get the constraints
             ArrayList<String> constraints = new ArrayList<>();
             for(String constraint: attrNode.constraints){
                 constraints.add(constraint);
             }
+            //and the foreign keys
             for(String fk : attrNode.fkReferences){
                 constraints.add(fk);
             }
+            //and create a new attribute
             Schema.Attribute newAttr = new Schema.Attribute(attrNode.name, attrNode.type, constraints);
+            //then add it to the table
             newTable.attributes.add(newAttr);
         }
+        //then add the new table to the schema
         Schema.instance.tables.add(newTable);
     }
 }
+//how to create attributes
 class CreateAttributeNode extends ASTNode{
     String name;
     String type;
@@ -565,21 +617,28 @@ class CreateAttributeNode extends ASTNode{
     }
     @Override
     public boolean validate(Schema schema, List<Schema.Table> tablesInScope) {
+        //make sure that it is of a suported type
         if(!type.equals("INTEGER") && !type.equals("REAL") && !type.equals("TEXT")){
             throw new RuntimeException("Invalid/unsupported attribute type: " + type);
         }
+        //make sure the constraint is supported as well
         for(String constraint: constraints) {
             if (!constraint.equals("NOTNULL") && !constraint.equals("PRIMARYKEY")) {
                 throw new RuntimeException("Invalid/unsupported constraint: " + constraint);
             }
         }
+        //make sure that the fk is valid
         for(String fk : fkReferences){
             if(fk.startsWith("references ")){
+                //what is the tasble name?
                 String refTableName = fk.substring("references ".length());
+                //does the table exist?
                 if(schema.getTable(refTableName) == null){
                     throw new RuntimeException("Referenced table not found in schema: " + refTableName);
+                //does the attribute that the table reference exist?
                 }else if(schema.getTable(refTableName).getAttribute(name) == null){
                     throw new RuntimeException("Referenced attribute not found in referenced table: " + name);
+                //and are their types the same?
                 }else if(!schema.getTable(refTableName).getAttribute(name).type.equals(type)){
                     throw new RuntimeException("Type mismatch in foreign key reference: " + type + " vs " + schema.getTable(refTableName).getAttribute(name).type);
                 }
@@ -602,6 +661,7 @@ class CreateAttributeNode extends ASTNode{
         }
         return sb.toString();
     }
+    //helper to convert the constraints to proper SQLite
     public static String getConstraint(String constraint){
         if(constraint.equals("NOTNULL")){
             return "NOT NULL";
@@ -687,11 +747,6 @@ class AttributeReference extends Value{
         this.value = value;
         this.function =function;
     }
-    // public AttributeReference(String tableName, String value) {
-    //     this.tableName = tableName;
-    //     this.value = value;
-    //     this.function =null;
-    // }
     @Override
     public String getValueType() {
         return "ATTRIBUTE";
@@ -707,12 +762,14 @@ class AttributeReference extends Value{
         return tableName;
     }
     public String toString() {
+        //create the attribte reference based on if it has a function or not
         if(function != null){
             return SelectNode.getFunction(function) + "(" + 
                 (tableName != null ? tableName + "." : "") + value + ")";
         }
         return (tableName != null ? tableName + "." : "") + value;
     }
+    //attributes are equal if their table name and name are the same (may change in future to also include tyeps)
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof AttributeReference other)) return false;
@@ -723,6 +780,7 @@ class AttributeReference extends Value{
     @Override public int hashCode(){return Objects.hash(tableName,value);}
 }
 
+// all references are like employees all and represent the *, special case of attribute reference
 class AllReference extends AttributeReference{
 
     public AllReference(String tableName, String value, String function) {
@@ -730,7 +788,7 @@ class AllReference extends AttributeReference{
     }
     
 }
-
+//this handles the commands of sqlite
 class CommandNode extends ASTNode{
     String command;
     public CommandNode(String command){
@@ -745,7 +803,7 @@ class CommandNode extends ASTNode{
     @Override
     public String emitSQL() {
         if(command.equals("tables")){
-            return ".tables;";//so technically these cant have semi colons but it is split by semicolon in the python script
+            return ".tables;";//so technically these cant have semi colons but it is split by semicolon in the python script, needs imporvement in future
         }else if (command.equals("fullschema")){
             return ".fullschema;";
         }else{
