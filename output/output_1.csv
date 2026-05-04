@@ -1,0 +1,4 @@
+department_id,COUNT(*),dept_name
+1,2,Human Resources
+2,2,Engineering
+3,1,Marketing

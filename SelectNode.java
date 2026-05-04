@@ -55,7 +55,8 @@ class SelectNode extends ASTNode{
         for(JoinNode j : join){
             for(AttributeReference attr: selectedAttributes){
                 if(attr instanceof AllReference && attr.tableName.equals(j.table)){
-                    finalAttrs.add(j.table+".*");
+                    if(attr.function == null)
+                        finalAttrs.add(j.table+".*"); //prevent count * being put on the joined table
                 }else{
                     if(attr.getTableName().equals(j.table)){
                         String func;

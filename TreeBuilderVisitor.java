@@ -187,8 +187,15 @@ public class TreeBuilderVisitor extends liteQLBaseVisitor<ASTNode>{
         if(ctx instanceof liteQLParser.AllContext){
             if(((liteQLParser.AllContext)ctx).COUNT() !=null){
                 attributes.add(new AllReference(tablename,"all","count"));
+                
             }else{
                 attributes.add(new AllReference(tablename,"all",null));
+            }
+            if(((liteQLParser.AllContext)ctx).attributeList()!=null){
+               
+                for(liteQLParser.AttributeContext attr : ((liteQLParser.AllContext)ctx).attributeList().attribute()){
+                    attributes.add(new AttributeReference(tablename,attr.attr.getText(),attr.function()==null ? null : attr.function().getText()));
+                }
             }
         }else{
             for(liteQLParser.AttributeContext attr : ((liteQLParser.ListContext)ctx).attributeList().attribute()){

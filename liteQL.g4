@@ -46,7 +46,7 @@ constraint: NOT NULL #notnull
 //SELECTING ATTRIBUTES
 //a select list is a list of select items
 selectList: attributeList #list
-        | COUNT? ALL #All
+        | COUNT? ALL (',' attributeList)? #All
         ;
 
 //LIST OF ATTRIBUTES (used in group by and order by clauses)              
