@@ -87,3 +87,5 @@ hr.db, animals.db,songs.db, and you can view their Schemas in the corresponding 
 4. See the output in the output/output.sql file and output_#.csv files!
 output.sql shows how the statements were compiled
 .csv files show how the statements executed against the database that you ran
+
+** note: you can view the scripts that created each database under the data directory**
