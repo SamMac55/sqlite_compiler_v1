@@ -1,0 +1,26 @@
+CREATE TABLE animal_types (
+    type_id INTEGER PRIMARY KEY,
+    type_name TEXT NOT NULL
+);
+CREATE TABLE habitats (
+    habitat_id INTEGER PRIMARY KEY,
+    habitat_name TEXT NOT NULL
+);
+CREATE TABLE animals (
+    animal_id INTEGER PRIMARY KEY,
+    animal_name TEXT NOT NULL,
+    type_id INTEGER NOT NULL REFERENCES animal_types(type_id),
+    habitat_id INTEGER NOT NULL REFERENCES habitats(habitat_id),
+    age INTEGER NOT NULL
+);
+CREATE TABLE caretakers (
+    caretaker_id INTEGER PRIMARY KEY,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL
+);
+CREATE TABLE animal_caretakers (
+    assignment_id INTEGER PRIMARY KEY,
+    animal_id INTEGER NOT NULL REFERENCES animals(animal_id),
+    caretaker_id INTEGER NOT NULL REFERENCES caretakers(caretaker_id)
+);
+/* No STAT tables available */

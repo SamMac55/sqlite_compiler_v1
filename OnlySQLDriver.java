@@ -1,4 +1,3 @@
-//java standard libraries
 import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
@@ -13,27 +12,26 @@ import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.BaseErrorListener;
-
-public class Driver {
+public class OnlySQLDriver {
     public static void main(String[] args) throws Exception {
         //first step is to make the schema and get the file we will be reading from
         CreateSchemaVisitor schemaVisitor;
         ArrayList<String> statements = new ArrayList<>();
-        if(args.length == 0){throw new RuntimeException("Must provide a sqlite database file path in command line");}
+        // if(args.length == 0){throw new RuntimeException("Must provide a sqlite database file path in command line");}
         String dbFile = args[0];
         try{
             //this process gets the output of the .fullschema and puts it in data/schema.txt
-            ProcessBuilder pb = new ProcessBuilder("python3", "extract_schema.py", dbFile);
-            pb.inheritIO();
-            Process p = pb.start();
+            //ProcessBuilder pb = new ProcessBuilder("python3", "extract_schema.py", dbFile);
+            //pb.inheritIO();
+           // Process p = pb.start();
             //wait for process to finish
-            int exitCode = p.waitFor();
-            if (exitCode != 0) {
-                throw new RuntimeException("Schema extraction failed");
-            }
+            //int exitCode = p.waitFor();
+            // if (exitCode != 0) {
+            //     throw new RuntimeException("Schema extraction failed");
+            // }
 
             //create schema symbol table
-            CharStream schemaInput = CharStreams.fromFileName("data/schema.txt");
+            CharStream schemaInput = CharStreams.fromFileName(dbFile);
             schema_grammarLexer schemaLexer = new schema_grammarLexer(schemaInput);
             CommonTokenStream schemaTokens = new CommonTokenStream(schemaLexer);
             schema_grammarParser schemaParser = new schema_grammarParser(schemaTokens);
@@ -100,14 +98,14 @@ public class Driver {
         }
         writer.close();
         //then create a new process that runs each output against the database
-        try{
-            ProcessBuilder pb2 = new ProcessBuilder("python3", "run_queries.py", dbFile);
-            pb2.inheritIO();
-            Process p2 = pb2.start();
-            p2.waitFor();
-        }catch(Exception e){
-            System.out.println("Unable to execute statements against database.");
-        }
+        // try{
+        //     ProcessBuilder pb2 = new ProcessBuilder("python3", "run_queries.py", dbFile);
+        //     pb2.inheritIO();
+        //     Process p2 = pb2.start();
+        //     p2.waitFor();
+        // }catch(Exception e){
+        //     System.out.println("Unable to execute statements against database.");
+        // }
     }
     
     //this creates the error listener
@@ -127,3 +125,9 @@ public class Driver {
         };
     }
 }
+// specific type of runtime exception that involves our type of syntax errors
+// class SyntaxErrorException extends RuntimeException {
+//     public SyntaxErrorException(String message) {
+//         super(message);
+//     }
+// }

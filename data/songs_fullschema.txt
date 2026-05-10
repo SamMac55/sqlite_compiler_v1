@@ -1,0 +1,30 @@
+CREATE TABLE artists (
+    artist_id INTEGER PRIMARY KEY,
+    artist_name TEXT NOT NULL
+);
+CREATE TABLE albums (
+    album_id INTEGER PRIMARY KEY,
+    album_name TEXT NOT NULL,
+    artist_id INTEGER NOT NULL REFERENCES artists(artist_id)
+);
+CREATE TABLE songs (
+    song_id INTEGER PRIMARY KEY,
+    song_title TEXT NOT NULL,
+    duration INTEGER NOT NULL,
+    album_id INTEGER NOT NULL REFERENCES albums(album_id)
+);
+CREATE TABLE users (
+    user_id INTEGER PRIMARY KEY,
+    username TEXT NOT NULL
+);
+CREATE TABLE playlists (
+    playlist_id INTEGER PRIMARY KEY,
+    playlist_name TEXT NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users(user_id)
+);
+CREATE TABLE playlist_songs (
+    playlist_song_id INTEGER PRIMARY KEY,
+    playlist_id INTEGER NOT NULL REFERENCES playlists(playlist_id),
+    song_id INTEGER NOT NULL REFERENCES songs(song_id)
+);
+/* No STAT tables available */
