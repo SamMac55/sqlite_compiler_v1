@@ -31,9 +31,11 @@ The project allows for select statements, limit, order, where, group by, having,
 2. ```antlr4 schema_grammar.g4 -no-listener -visitor```
 **Steps 1 and 2 generate the antlr-related files like the .interp,.tokens, BaseVisitor, and Parsers.**
 3. ```CP=$(grep '^CLASSPATH=' "$(which antlr4)" | cut -d= -f2-):.```
-4. ```javac -cp $CP *.java ```
+4. ```javac -cp $CP *.java ```  
+#########  
 *Alternatively use the OnlySQLDriver.java if you cannot install python/SQLite, to see only the outputted SQL statements*  
-```java -cp $CP Driver "data/DATABASENAME_fullschema.txt" < input/FILENAME.txt```
+```java -cp $CP Driver "data/DATABASENAME_fullschema.txt" < input/FILENAME.txt```  
+#########
 5. ```java -cp $CP Driver "data/DATABASENAME.db" < input/FILENAME.txt```
 **note that each input file has the name of the database in it. the three databases are:  
 hr.db, animals.db,songs.db, and you can view their Schemas in the corresponding DATABASENAME_script.sql file**
